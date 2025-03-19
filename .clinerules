@@ -1,0 +1,122 @@
+# YouTube字幕ブログ生成プラットフォーム - プロジェクトルール
+
+## プロジェクト構造
+```
+youtube-blog-ai/
+├── app/                   # Next.js App Router構造
+│   ├── api/              # APIルート
+│   ├── components/       # 共通コンポーネント
+│   ├── hooks/           # カスタムフック
+│   ├── lib/             # ユーティリティ関数
+│   ├── types/           # 型定義
+│   └── utils/           # ヘルパー関数
+├── memory-bank/          # プロジェクトドキュメント
+└── public/              # 静的アセット
+```
+
+## コーディング規約
+
+### 1. TypeScript
+- 型定義は明示的に記述
+- interfaceよりもtype aliasを優先使用
+- as型アサーションは最小限に抑える
+
+### 2. コンポーネント
+- Atomic Designパターンの採用
+- Server/Clientコンポーネントの明確な区分け
+- Props型の厳密な定義
+
+### 3. 状態管理
+- Server Componentsを最大限活用
+- クライアント状態の最小化
+- フォーム状態はreact-hook-formで管理
+
+### 4. エラーハンドリング
+- APIエラーは統一フォーマットで返却
+- クライアントエラーは適切なUI表示
+- エラーログの詳細な記録
+
+### 5. 命名規則
+- コンポーネント: PascalCase
+- 関数: camelCase
+- 定数: SCREAMING_SNAKE_CASE
+- type/interface: PascalCase
+- ファイル名: kebab-case
+
+## 実装パターン
+
+### 1. APIレスポンス型
+```typescript
+type ApiResponse<T> = {
+  success: boolean;
+  data?: T;
+  error?: {
+    code: string;
+    message: string;
+  };
+};
+```
+
+### 2. APIエラーハンドリング
+```typescript
+const handleApiError = (error: unknown): ApiResponse<never> => {
+  if (error instanceof Error) {
+    return {
+      success: false,
+      error: {
+        code: 'UNKNOWN_ERROR',
+        message: error.message
+      }
+    };
+  }
+  return {
+    success: false,
+    error: {
+      code: 'UNKNOWN_ERROR',
+      message: '不明なエラーが発生しました'
+    }
+  };
+};
+```
+
+### 3. データベースアクセス
+```typescript
+import { createClient } from '@supabase/supabase-js';
+
+export const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+```
+
+### 4. 認証ミドルウェア
+```typescript
+import { authMiddleware } from "@clerk/nextjs";
+ 
+export default authMiddleware({
+  publicRoutes: ["/", "/api/health"],
+  ignoredRoutes: ["/api/webhooks(.*)"]
+});
+```
+
+## 重要な実装注意点
+
+### 1. パフォーマンス
+- Server Componentsの適切な使用
+- 画像の最適化
+- 適切なキャッシング戦略
+
+### 2. セキュリティ
+- 環境変数の厳格な管理
+- APIルートの認証チェック
+- ユーザー入力の検証
+
+### 3. アクセシビリティ
+- セマンティックなHTML
+- ARIA属性の適切な使用
+- キーボード操作のサポート
+
+### 4. テスト
+- ユニットテストの必須化
+- インテグレーションテストの実装
+- E2Eテストの計画的実施
