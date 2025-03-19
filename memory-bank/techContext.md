@@ -13,11 +13,14 @@
 - **Node.js** - ランタイム環境
 
 ### データベース
-- **PostgreSQL** - メインデータベース
-- **Drizzle ORM** - TypeSafe なデータベースツールキット
+- **Supabase** (PostgreSQL)
+  - データベースホスティング
+  - ユーザー管理
+  - ストレージ
+- **Drizzle ORM**
   - スキーマ定義
   - マイグレーション管理
-  - クエリビルダー
+  - タイプセーフなクエリビルダー
 
 ### 認証
 - **Clerk**
@@ -44,6 +47,7 @@
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` - Clerk公開キー
 - `CLERK_SECRET_KEY` - Clerkシークレットキー
 - `NEXT_PUBLIC_SUPABASE_URL` - SupabaseプロジェクトURL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase匿名キー
 - `SUPABASE_SERVICE_ROLE_KEY` - Supabaseサービスロールキー
 
 ## 技術的制約

@@ -6,7 +6,7 @@ graph TD
     Client[クライアント層] --> |1. YouTube URL送信| API[API層]
     API --> |2. 字幕取得| YT[YouTube API]
     API --> |3. テキスト生成| OpenAI[OpenAI API]
-    API --> |4. データ永続化| DB[PostgreSQL]
+    API --> |4. データ永続化| DB[Supabase]
     Client --> |5. 認証| Auth[Clerk認証]
 ```
 
@@ -33,7 +33,7 @@ graph TD
 
 ### 4. インフラストラクチャ層
 - Vercelでのサーバーレスデプロイ
-- PostgreSQL + Drizzle ORMでのデータ永続化
+- Supabase + Drizzle ORMでのデータ永続化
 - Clerkによる認証基盤
 
 ## データフロー
@@ -44,7 +44,7 @@ sequenceDiagram
     participant API as APIルート
     participant YT as YouTube API
     participant AI as OpenAI API
-    participant DB as PostgreSQL
+    participant DB as Supabase
 
     User->>Frontend: URL入力
     Frontend->>API: リクエスト送信
@@ -60,7 +60,8 @@ sequenceDiagram
 ## デザインパターン
 ### 1. Repository Pattern
 - データアクセスの抽象化
-- Drizzle ORMを使用したリポジトリパターンの実装
+- Drizzle ORMによるタイプセーフなクエリ構築
+- Supabaseリソースへの統一的なアクセス
 
 ### 2. Factory Pattern
 - 記事生成プロセスの抽象化
