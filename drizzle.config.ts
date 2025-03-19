@@ -1,11 +1,13 @@
-import type { Config } from 'drizzle-kit';
+import type { Config } from "drizzle-kit";
+import { loadEnvConfig } from "@next/env";
+
+loadEnvConfig(process.cwd());
 
 export default {
-  schema: './app/db/schema.ts',
-  out: './drizzle',
-  driver: 'pg',
+  schema: "./app/db/schema.ts",
+  out: "./drizzle",
+  dialect: "postgresql",
   dbCredentials: {
-    connectionString: process.env.DATABASE_URL || '',
+    url: process.env.DATABASE_URL!,
   },
-  tablesFilter: ['youtube_blog_ai_*'],
 } satisfies Config;

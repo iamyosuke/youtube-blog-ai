@@ -1,57 +1,36 @@
-import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
-
+import { pgSchema, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 // スキーマ名を定義
-const schema = 'youtube_blog_ai';
+export const mySchema = pgSchema('youtube_blog_ai');
+
 
 // ユーザーテーブル
-export const users = pgTable(`${schema}.users`, {
-  id: uuid('id').primaryKey().defaultRandom(),
-  email: text('email').notNull().unique(),
-  fullName: text('full_name'),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
+export const users = mySchema.table('users', {
+  id: uuid().primaryKey().defaultRandom(),
+  email: text().notNull().unique(),
+  fullName: text(),
+  createdAt: timestamp().defaultNow(),
+  updatedAt: timestamp().defaultNow(),
 });
 
 // 記事テーブル
-export const articles = pgTable(`${schema}.articles`, {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id),
-  videoId: text('video_id').notNull(),
-  title: text('title').notNull(),
-  content: text('content').notNull(),
-  language: text('language').notNull(),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
+export const articles = mySchema.table('articles', {
+  id: uuid().primaryKey().defaultRandom(),
+  userId: uuid().notNull().references(() => users.id),
+  videoId: text().notNull(),
+  title: text().notNull(),
+  content: text().notNull(),
+  language: text().notNull(),
+  createdAt: timestamp().defaultNow(),
+  updatedAt: timestamp().defaultNow(),
 });
 
 // 字幕テーブル
-export const transcripts = pgTable(`${schema}.transcripts`, {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id),
-  videoId: text('video_id').notNull(),
-  transcript: text('transcript').notNull(),
-  language: text('language').notNull(),
-  createdAt: timestamp('created_at').defaultNow(),
+export const transcripts = mySchema.table('transcripts', {
+  id: uuid().primaryKey().defaultRandom(),
+  userId: uuid().notNull().references(() => users.id),
+  videoId: text().notNull(),
+  transcript: text().notNull(),
+  language: text().notNull(),
+  createdAt: timestamp().defaultNow(),
 });
 
-// オートインクリメント用のトリガー関数とトリガーを作成
-export const setupSchema = async (client: any) => {
-  await client.execute(sql`
-    CREATE SCHEMA IF NOT EXISTS ${sql.raw(schema)};
-    
-    CREATE OR REPLACE FUNCTION ${sql.raw(schema)}.update_updated_at()
-    RETURNS TRIGGER AS $$
-    BEGIN
-      NEW.updated_at = CURRENT_TIMESTAMP;
-      RETURN NEW;
-    END;
-    $$ LANGUAGE plpgsql;
-    
-    DROP TRIGGER IF EXISTS update_articles_updated_at ON ${sql.raw(schema)}.articles;
-    CREATE TRIGGER update_articles_updated_at
-      BEFORE UPDATE ON ${sql.raw(schema)}.articles
-      FOR EACH ROW
-      EXECUTE FUNCTION ${sql.raw(schema)}.update_updated_at();
-  `);
-};
