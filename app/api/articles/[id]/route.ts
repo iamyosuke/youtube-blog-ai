@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server';
-import { ApiResponse } from '@/app/types';
-import db from '@/app/db';
-import { articles } from '@/app/db/schema';
 import { auth } from '@clerk/nextjs/server';
-import { eq, and } from 'drizzle-orm';
+import { getArticle, updateArticle, deleteArticle } from '@/app/services/articles';
 
 export async function GET(
   request: Request,
@@ -21,16 +18,9 @@ export async function GET(
   }
 
   try {
-    const article = await db
-      .select()
-      .from(articles)
-      .where(and(
-        eq(articles.id, params.id),
-        eq(articles.userId, userId)
-      ))
-      .limit(1);
+    const article = await getArticle(params.id);
 
-    if (article.length === 0) {
+    if (!article || article.userId !== userId) {
       return NextResponse.json({
         success: false,
         error: {
@@ -42,7 +32,7 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      data: article[0]
+      data: article
     });
   } catch (error: any) {
     console.error('[Article Error]:', error);
@@ -87,16 +77,8 @@ export async function PATCH(
     }
 
     // 記事の存在確認
-    const exists = await db
-      .select({ id: articles.id })
-      .from(articles)
-      .where(and(
-        eq(articles.id, params.id),
-        eq(articles.userId, userId)
-      ))
-      .limit(1);
-
-    if (exists.length === 0) {
+    const exists = await getArticle(params.id);
+    if (!exists || exists.userId !== userId) {
       return NextResponse.json({
         success: false,
         error: {
@@ -106,30 +88,16 @@ export async function PATCH(
       }, { status: 404 });
     }
 
-    // 更新するフィールドを準備
-    const updateData: {
-      title?: string;
-      content?: string;
-      language?: string;
-    } = {};
-
-    if (title) updateData.title = title;
-    if (content) updateData.content = content;
-    if (language) updateData.language = language;
-
     // 記事を更新
-    const updated = await db
-      .update(articles)
-      .set(updateData)
-      .where(and(
-        eq(articles.id, params.id),
-        eq(articles.userId, userId)
-      ))
-      .returning();
+    const updated = await updateArticle(params.id, {
+      ...(title ? { title } : {}),
+      ...(content ? { content } : {}),
+      ...(language ? { language } : {})
+    });
 
     return NextResponse.json({
       success: true,
-      data: updated[0]
+      data: updated
     });
   } catch (error: any) {
     console.error('[Article Error]:', error);
@@ -160,15 +128,9 @@ export async function DELETE(
   }
 
   try {
-    const deleted = await db
-      .delete(articles)
-      .where(and(
-        eq(articles.id, params.id),
-        eq(articles.userId, userId)
-      ))
-      .returning();
-
-    if (deleted.length === 0) {
+    // 記事の存在確認
+    const exists = await getArticle(params.id);
+    if (!exists || exists.userId !== userId) {
       return NextResponse.json({
         success: false,
         error: {
@@ -178,9 +140,11 @@ export async function DELETE(
       }, { status: 404 });
     }
 
+    // 記事を削除
+    await deleteArticle(params.id);
+
     return NextResponse.json({
-      success: true,
-      data: deleted[0]
+      success: true
     });
   } catch (error: any) {
     console.error('[Article Error]:', error);

@@ -1,9 +1,8 @@
 import { YoutubeTranscript } from 'youtube-transcript';
 import { extractVideoId, validateVideoId } from '@/app/utils/api';
 import { NextResponse } from 'next/server';
-import { ApiResponse, TranscriptResponse, YouTubeTranscriptSegment } from '@/app/types';
-import db from '@/app/db';
-import { transcripts } from '@/app/db/schema';
+import { TranscriptResponse, YouTubeTranscriptSegment } from '@/app/types';
+import { createTranscript } from '@/app/services/transcripts';
 import { auth } from '@clerk/nextjs/server';
 
 type RawTranscriptSegment = {
@@ -54,7 +53,7 @@ export async function POST(request: Request) {
 
     // データベースに字幕を保存
     const transcriptText = transcript.map(segment => segment.text).join('\n');
-    await db.insert(transcripts).values({
+    await createTranscript({
       userId,
       videoId: videoId as string,
       transcript: transcriptText,

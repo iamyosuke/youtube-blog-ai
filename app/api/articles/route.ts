@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server';
-import { ApiResponse, Article } from '@/app/types';
-import db from '@/app/db';
-import { articles } from '@/app/db/schema';
 import { auth } from '@clerk/nextjs/server';
-import { eq } from 'drizzle-orm';
+import { createArticle, getArticles } from '@/app/services/articles';
 
 export async function POST(request: Request) {
   const { userId } = await auth();
@@ -32,17 +29,17 @@ export async function POST(request: Request) {
     }
 
     // 記事を保存
-    const article = await db.insert(articles).values({
+    const article = await createArticle({
       userId,
       videoId,
       title,
       content,
       language
-    }).returning();
+    });
 
     return NextResponse.json({
       success: true,
-      data: article[0]
+      data: article
     });
   } catch (error: any) {
     console.error('[Article Error]:', error);
@@ -71,10 +68,7 @@ export async function GET(request: Request) {
 
   try {
     // ユーザーの記事一覧を取得
-    const userArticles = await db
-      .select()
-      .from(articles)
-      .where(eq(articles.userId, userId));
+    const userArticles = await getArticles(userId);
 
     return NextResponse.json({
       success: true,

@@ -17,7 +17,9 @@ graph TD
 - プログレッシブエンハンスメントの採用
 
 ### 2. アプリケーション層
-- APIルートによるサーバーレスファンクションの実装
+- サービスレイヤーによるビジネスロジックの分離（app/services）
+- Server Actionsによるサーバーサイド処理の最適化
+- APIルートによるRESTful APIの提供
 - リクエスト・レスポンスの標準化
 - エラーハンドリングの一元管理
 
@@ -59,9 +61,21 @@ sequenceDiagram
 
 ## デザインパターン
 ### 1. Repository Pattern
-- データアクセスの抽象化
+- サービスレイヤーでのデータアクセス抽象化
+  - articles.ts: 記事関連の操作
+  - transcripts.ts: 字幕関連の操作
 - Drizzle ORMによるタイプセーフなクエリ構築
 - Supabaseリソースへの統一的なアクセス
+
+### 2. Service Layer Pattern
+- ビジネスロジックの分離
+- データベース操作の一元管理
+- Server ActionsとAPIルートでの再利用
+
+### 3. Server Actions Pattern
+- フォーム処理の最適化
+- クライアントサイドキャッシュの活用
+- 楽観的更新の実装
 
 ### 2. Factory Pattern
 - 記事生成プロセスの抽象化
