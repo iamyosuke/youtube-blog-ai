@@ -1,7 +1,10 @@
 import { YoutubeTranscript } from 'youtube-transcript';
 import { extractVideoId, validateVideoId } from '@/app/utils/api';
 import { NextResponse } from 'next/server';
-import { TranscriptResponse, YouTubeTranscriptSegment } from '@/app/types';
+import { ApiResponse, TranscriptResponse, YouTubeTranscriptSegment } from '@/app/types';
+import db from '@/app/db';
+import { transcripts } from '@/app/db/schema';
+import { auth } from '@clerk/nextjs/server';
 
 type RawTranscriptSegment = {
   text: string;
@@ -10,6 +13,17 @@ type RawTranscriptSegment = {
 };
 
 export async function POST(request: Request) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '認証が必要です'
+      }
+    }, { status: 401 });
+  }
+
   try {
     const data = await request.json();
     const videoUrl = data.url;
@@ -17,10 +31,13 @@ export async function POST(request: Request) {
     // URLからビデオIDを抽出
     const videoId = extractVideoId(videoUrl);
     if (!validateVideoId(videoId)) {
-      return NextResponse.json(
-        { error: '無効なYouTube URLです' },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        success: false,
+        error: {
+          code: 'INVALID_URL',
+          message: '無効なYouTube URLです'
+        }
+      }, { status: 400 });
     }
 
     // 字幕を取得
@@ -35,21 +52,34 @@ export async function POST(request: Request) {
       })
     );
 
+    // データベースに字幕を保存
+    const transcriptText = transcript.map(segment => segment.text).join('\n');
+    await db.insert(transcripts).values({
+      userId,
+      videoId: videoId as string,
+      transcript: transcriptText,
+      language: 'ja', // 現在は日本語のみサポート
+    });
+
     const response: TranscriptResponse = {
       videoId: videoId as string,
       transcript
     };
 
-    return NextResponse.json(response);
+    return NextResponse.json({
+      success: true,
+      data: response
+    });
   } catch (error: any) {
     console.error('[Transcript Error]:', error);
 
     // エラーレスポンス
-    return NextResponse.json(
-      { 
-        error: error.message || '字幕の取得に失敗しました' 
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: error.message || '字幕の取得に失敗しました'
+      }
+    }, { status: 500 });
   }
 }

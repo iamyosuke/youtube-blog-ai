@@ -15,7 +15,7 @@ export const users = mySchema.table('users', {
 // 記事テーブル
 export const articles = mySchema.table('articles', {
   id: uuid().primaryKey().defaultRandom(),
-  userId: uuid().notNull().references(() => users.id),
+  userId: text().notNull(),
   videoId: text().notNull(),
   title: text().notNull(),
   content: text().notNull(),
@@ -27,10 +27,9 @@ export const articles = mySchema.table('articles', {
 // 字幕テーブル
 export const transcripts = mySchema.table('transcripts', {
   id: uuid().primaryKey().defaultRandom(),
-  userId: uuid().notNull().references(() => users.id),
+  userId: text().notNull(),
   videoId: text().notNull(),
   transcript: text().notNull(),
   language: text().notNull(),
   createdAt: timestamp().defaultNow(),
 });
-
