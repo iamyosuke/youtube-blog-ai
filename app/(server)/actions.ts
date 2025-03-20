@@ -1,7 +1,7 @@
 import { revalidatePath } from 'next/cache';
 import { createArticle, deleteArticle, getArticle, getArticles, updateArticle } from './(services)/articles';
 import { createTranscript, deleteTranscript, getTranscript, getTranscripts } from './(services)/transcripts';
-import type { Article, NewArticle, Transcript } from '../types';
+import type { Article, NewArticle, Transcript } from '../lib/types';
 
 /**
  * 記事作成アクション

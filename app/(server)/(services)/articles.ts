@@ -1,7 +1,7 @@
 import db from '@/app/db';
 import { articles } from '@/app/db/schema';
 import { eq } from 'drizzle-orm';
-import type { NewArticle, Article } from '@/app/types';
+import type { NewArticle, Article } from '@/app/lib/types';
 
 /**
  * 記事を作成する
