@@ -1,11 +1,16 @@
 import { YoutubeTranscript } from 'youtube-transcript';
 import { extractVideoId, validateVideoId } from '@/app/utils/api';
 import { NextResponse } from 'next/server';
-import { TranscriptResponse, YouTubeTranscriptSegment } from '@/app/types';
 import { createTranscript } from '@/app/services/transcripts';
 import { auth } from '@clerk/nextjs/server';
 
 type RawTranscriptSegment = {
+  text: string;
+  start: number;
+  duration: number;
+};
+
+type YouTubeTranscriptSegment = {
   text: string;
   start: number;
   duration: number;
@@ -60,7 +65,7 @@ export async function POST(request: Request) {
       language: 'ja', // 現在は日本語のみサポート
     });
 
-    const response: TranscriptResponse = {
+    const response = {
       videoId: videoId as string,
       transcript
     };
