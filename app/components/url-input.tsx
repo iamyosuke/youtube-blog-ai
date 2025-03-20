@@ -2,55 +2,31 @@
 
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { extractVideoId, validateVideoId } from '../lib/api'
 import { ErrorMessage } from './error-message'
+import { getYouTubeTranscriptAction } from '../(server)/actions/getYouTubeTranscriptAction'
 
-type FormData = {
+type UrlFormData = {
   url: string
 }
 
 export function URLInput() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>()
+  const { register, handleSubmit, formState: { errors } } = useForm<UrlFormData>()
 
-  const onSubmit = async (data: FormData) => {
-    setIsLoading(true)
-    setError(null)
-    try {
-      const videoId = extractVideoId(data.url)
-      
-      if (!validateVideoId(videoId)) {
-        throw new Error('無効なYouTube URLです')
-      }
 
-      // 字幕を取得
-      const response = await fetch('/api/transcript', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url: data.url }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || '字幕の取得に失敗しました');
-      }
-
-      const result = await response.json();
-      console.log('Transcript:', result);
-      
-    } catch (error) {
-      console.error('Error:', error)
-      setError(error instanceof Error ? error.message : '予期せぬエラーが発生しました')
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form action={async (formData: FormData) => {
+      setIsLoading(true)
+      const result = await getYouTubeTranscriptAction(formData)
+      if (result.success) {
+        setIsLoading(false)
+      } else {
+        setError(result.error?.message || 'エラーが発生しました')
+        setIsLoading(false)
+      }
+    }} className="space-y-4">
       <div className="space-y-4">
         <div className="relative">
           <input

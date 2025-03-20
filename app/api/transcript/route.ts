@@ -46,15 +46,14 @@ export async function POST(request: Request) {
 
     // 字幕を取得
     const rawTranscript = await YoutubeTranscript.fetchTranscript(videoId as string);
-    const transcriptData = rawTranscript as unknown as RawTranscriptSegment[];
     
-    const transcript: YouTubeTranscriptSegment[] = transcriptData.map(
-      (segment: RawTranscriptSegment): YouTubeTranscriptSegment => ({
-        text: segment.text,
-        start: segment.start,
-        duration: segment.duration
-      })
-    );
+      await createTranscript({
+        userId: userId.userId as string,
+        videoId: videoId as string,
+        transcript: JSON.stringify(rawTranscript), // 生のJSONデータを保存
+        language: 'ja',
+      });
+
 
     // データベースに字幕を保存
     const transcriptText = transcript.map(segment => segment.text).join('\n');

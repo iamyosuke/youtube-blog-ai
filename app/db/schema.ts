@@ -1,4 +1,4 @@
-import { pgSchema, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { jsonb, pgSchema, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 // スキーマ名を定義
 export const mySchema = pgSchema('youtube_blog_ai');
 
@@ -29,7 +29,7 @@ export const transcripts = mySchema.table('transcripts', {
   id: uuid().primaryKey().defaultRandom(),
   userId: text().notNull(),
   videoId: text().notNull(),
-  transcript: text().notNull(),
+  transcript: jsonb().notNull(), // PostgreSQLの場合
   language: text().notNull(),
   createdAt: timestamp().defaultNow(),
 });

@@ -1,3 +1,4 @@
+'server only'
 import db from '@/app/db';
 import { articles } from '@/app/db/schema';
 import { eq } from 'drizzle-orm';
