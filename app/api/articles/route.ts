@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { createArticle, getArticles } from '@/app/services/articles';
+import { createArticle, getArticles } from '@/app/(server)/(services)/articles';
 
 export async function POST(request: Request) {
   const { userId } = await auth();

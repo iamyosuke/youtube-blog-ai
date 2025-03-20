@@ -1,7 +1,7 @@
 import { YoutubeTranscript } from 'youtube-transcript';
-import { extractVideoId, validateVideoId } from '@/app/utils/api';
+import { extractVideoId, validateVideoId } from '@/app/lib/api';
 import { NextResponse } from 'next/server';
-import { createTranscript } from '@/app/services/transcripts';
+import { createTranscript } from '@/app/(server)/(services)/transcripts';
 import { auth } from '@clerk/nextjs/server';
 
 type RawTranscriptSegment = {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getArticle, updateArticle, deleteArticle } from '@/app/services/articles';
+import { getArticle, updateArticle, deleteArticle } from '@/app/(server)/(services)/articles';
 
 export async function GET(
   request: Request,

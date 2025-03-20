@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { extractVideoId, validateVideoId } from '../utils/api'
+import { extractVideoId, validateVideoId } from '../lib/api'
 import { ErrorMessage } from './error-message'
 
 type FormData = {
