@@ -8,6 +8,19 @@
   - Client Components（必要最小限）
   - Server Actions（フォーム処理）
 
+### Page Component型定義
+```typescript
+// ダイナミックルートのページコンポーネント
+type PageProps = {
+  params: { [key: string]: string }
+  searchParams?: { [key: string]: string | string[] | undefined }
+}
+
+export default async function Page({ params, searchParams }: PageProps) {
+  // ...
+}
+```
+
 ### バックエンド構造
 - **Server Components** - データフェッチ
 - **Server Actions** - サーバーサイド処理
@@ -53,6 +66,9 @@ app/
 ### 基本要件
 - Node.js >= 18.x
 - TypeScript（Strict Mode）
+  - Next.js 14の型定義を厳密に使用
+  - Page Propsの型定義を徹底
+  - Drizzle型の活用
 - ESLint + Prettier
 - pnpm（パッケージマネージャー）
 

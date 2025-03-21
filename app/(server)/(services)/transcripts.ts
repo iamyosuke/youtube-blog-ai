@@ -2,7 +2,7 @@
 import db from '@/app/db';
 import { transcripts } from '@/app/db/schema';
 import { eq, and } from 'drizzle-orm';
-import type { NewTranscript, Transcript } from '@/app/lib/types';
+import type { NewTranscript, Transcript } from '@/lib/types';
 
 /**
  * 字幕データを作成する

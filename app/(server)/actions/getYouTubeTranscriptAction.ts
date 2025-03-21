@@ -4,7 +4,7 @@ import { auth } from '@clerk/nextjs/server'
 import { YoutubeTranscript } from 'youtube-transcript'
 import { createTranscript } from '../(services)/transcripts'
 import { generateAndSaveArticle } from '../(services)/articles'
-import { YouTubeTranscriptSegment } from '@/app/lib/types'
+import { YouTubeTranscriptSegment } from '@/lib/types'
 import { revalidatePath } from 'next/cache'
 // URLからビデオIDを抽出する関数
 function extractVideoId(url: string): string | null {

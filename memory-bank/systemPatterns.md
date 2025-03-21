@@ -78,13 +78,20 @@ sequenceDiagram
 ```
 
 ## 実装パターン
-### 1. Server Component優先パターン
+### 1. Page Component型定義パターン
 ```typescript
+// ベース型定義
+type BasePageProps = {
+  params: { [key: string]: string }
+  searchParams?: { [key: string]: string | string[] | undefined }
+}
+
+// 静的ページの例
 // app/articles/page.tsx
-export default async function ArticlesPage() {
-  // Server Componentで直接データフェッチ
+export default async function ArticlesPage({
+  searchParams
+}: BasePageProps) {
   const articles = await db.query.articles.findMany();
-  
   return (
     <div>
       {articles.map(article => (
@@ -93,6 +100,17 @@ export default async function ArticlesPage() {
     </div>
   );
 }
+
+// 動的ルートページの例
+// app/articles/[id]/page.tsx
+export default async function ArticlePage({
+  params
+}: BasePageProps) {
+  const article = await db.query.articles.findFirst({
+    where: { id: params.id }
+  });
+  return <ArticleDetail article={article} />;
+}
 ```
 
 ### 2. Server Actionパターン
@@ -100,25 +118,37 @@ export default async function ArticlesPage() {
 // app/(server)/actions/articles.ts
 'use server'
 
-export async function createArticle(data: FormData) {
-  // サービスレイヤーの呼び出し
-  const articleService = new ArticleService();
-  return articleService.createArticle({
-    // Drizzle ORMの型を使用
+import { db } from '@/db'
+import { articles } from '@/db/schema'
+import { Article, InsertArticle } from '@/db/types'
+
+export async function createArticle(data: FormData): Promise<Article> {
+  const articleData: InsertArticle = {
     title: data.get('title') as string,
     content: data.get('content') as string,
-  });
+  };
+
+  const articleService = new ArticleService();
+  return articleService.create(articleData);
 }
 ```
 
 ### 3. サービスレイヤーパターン
 ```typescript
 // app/(server)/services/articles.ts
+import { db } from '@/db'
+import { articles } from '@/db/schema'
+import { Article, InsertArticle } from '@/db/types'
+
 export class ArticleService {
-  async generateFromYoutube(url: string) {
+  async create(data: InsertArticle): Promise<Article> {
+    return db.insert(articles).values(data).returning();
+  }
+
+  async generateFromYoutube(url: string): Promise<Article> {
     const transcript = await this.youtubeService.getTranscript(url);
-    const article = await this.openaiService.generateArticle(transcript);
-    return this.createArticle(article);
+    const content = await this.openaiService.generateArticle(transcript);
+    return this.create({ title: transcript.title, content });
   }
 }
 ```

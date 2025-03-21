@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { YouTubeService } from "@/app/(server)/services/youtube";
-import type { Article } from "@/app/lib/types";
+import type { Article } from "@/lib/types";
 
 interface ArticleCardProps {
   article: Article;

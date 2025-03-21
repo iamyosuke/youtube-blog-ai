@@ -2,7 +2,7 @@
 import db from '@/app/db';
 import { articles, transcripts } from '@/app/db/schema';
 import { eq } from 'drizzle-orm';
-import type { NewArticle, Article, Transcript } from '@/app/lib/types';
+import type { NewArticle, Article, Transcript } from '@/lib/types';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Gemini APIの初期化

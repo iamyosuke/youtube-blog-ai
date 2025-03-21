@@ -1,5 +1,5 @@
 import { auth } from '@clerk/nextjs/server';
-import { getArticles } from '../(server)/(services)/articles';
+import { getArticles } from '@/app/(server)/(services)/articles';
 import Link from 'next/link';
 import { ArticleCard } from './components/article-card';
 

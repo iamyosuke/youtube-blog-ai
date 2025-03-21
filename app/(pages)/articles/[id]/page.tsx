@@ -1,19 +1,17 @@
 import { auth } from '@clerk/nextjs/server';
-import { getArticle } from '../../(server)/(services)/articles';
+import { getArticle } from '@/app/(server)/(services)/articles';
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import Image from 'next/image';
 import { YouTubeService } from '@/app/(server)/services/youtube';
 // 動的メタデータの生成
 export async function generateMetadata({ 
-  params: pageParams
+  params 
 }: { 
-  params: { id: string }
+  params: { id: string } 
 }): Promise<Metadata> {
-  const [params] = await Promise.all([
-    Promise.resolve(pageParams)
-  ]);
-  const article = await getArticle(params.id);
+  const resolvedParams = await params;
+  const article = await getArticle(resolvedParams.id);
   
   if (!article) {
     return {
@@ -28,15 +26,12 @@ export async function generateMetadata({
 }
 
 export default async function ArticlePage({
-  params: pageParams
+  params
 }: {
   params: { id: string }
 }) {
-  const [params] = await Promise.all([
-    Promise.resolve(pageParams)
-  ]);
-
-  const article = await getArticle(params.id);
+  const resolvedParams = await params;
+  const article = await getArticle(resolvedParams.id);
   
   if (!article) {
     notFound();
