@@ -53,25 +53,22 @@ export async function getYouTubeTranscriptAction(formData: FormData) {
 
     // 字幕を取得
     const rawTranscript = await YoutubeTranscript.fetchTranscript(videoId as string);
-    const transcriptData = rawTranscript as unknown as YouTubeTranscriptSegment[];
-    
-    const transcript: YouTubeTranscriptSegment[] = transcriptData.map(
-      (segment: YouTubeTranscriptSegment): YouTubeTranscriptSegment => ({
-        text: segment.text,
-        start: segment.start,
-        duration: segment.duration,
-        language: segment.language
-      })
-    );
+    const transcript = rawTranscript.map(segment => ({
+      text: segment.text,
+      start: segment.offset,
+      duration: segment.duration,
+      language: segment.lang
+    }));
 
-    
+    console.log(transcript[0].language);
+
     await createTranscript({
       userId: userId.userId as string,
       videoId: videoId as string,
       transcript: JSON.stringify(transcript),
       language: transcript[0].language, 
     });
-    
+
     revalidatePath('/');
 
     return {
