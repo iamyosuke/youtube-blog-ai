@@ -1,6 +1,5 @@
-import type { Config } from 'tailwindcss'
-
-const config: Config = {
+/** @type {import('tailwindcss').Config} */
+module.exports = {
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -11,14 +10,11 @@ const config: Config = {
       fontFamily: {
         sans: ['Inter var', 'sans-serif'],
       },
-      colors: {
-        // カスタムカラーがあれば追加
-      },
     },
   },
-  plugins: [
-    require('@tailwindcss/forms'),
-  ],
+  plugins: [require('@tailwindcss/forms'),
+    require('@tailwindcss/typography'),
+  ]
+  ,
 }
 
-export default config
