@@ -66,7 +66,7 @@ export async function getYouTubeTranscriptAction(formData: FormData) {
       userId: userId.userId as string,
       videoId: videoId as string,
       transcript: JSON.stringify(transcript),
-      language: transcript[0].language, 
+      language: transcript[0].language as string, 
     });
 
     revalidatePath('/');
