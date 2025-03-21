@@ -2,6 +2,8 @@ import { auth } from '@clerk/nextjs/server';
 import { getArticle } from '../../(server)/(services)/articles';
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
+import Image from 'next/image';
+import { YouTubeService } from '@/app/(server)/services/youtube';
 // 動的メタデータの生成
 export async function generateMetadata({ 
   params: pageParams
@@ -44,6 +46,17 @@ export default async function ArticlePage({
     <article className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
         <header className="mb-8">
+          {/* サムネイル */}
+          <div className="relative aspect-video mb-6 rounded-lg overflow-hidden">
+            <Image
+              src={YouTubeService.getThumbnailUrl(article.videoId)}
+              alt={article.title}
+              fill
+              className="object-cover"
+              priority
+            />
+          </div>
+
           {/* タイトル */}
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl mb-4">
             {article.title}

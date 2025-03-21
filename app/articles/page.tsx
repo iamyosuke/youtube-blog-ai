@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { getArticles } from '../(server)/(services)/articles';
 import Link from 'next/link';
+import { ArticleCard } from './components/article-card';
 
 export default async function ArticlesPage() {
   const { userId } = await auth();
@@ -13,17 +14,14 @@ export default async function ArticlesPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">記事一覧</h1>
-      <div className="grid gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {articles.map((article) => (
           <Link
             key={article.id}
             href={`/articles/${article.id}`}
-            className="block p-6 bg-white rounded-lg shadow hover:shadow-lg transition-shadow"
+            className="block hover:opacity-80 transition-opacity"
           >
-            <h2 className="text-xl font-semibold mb-2">{article.title}</h2>
-            <div className="text-gray-600">
-              作成日: {article.createdAt ? new Date(article.createdAt).toLocaleDateString('ja-JP') : '不明'}
-            </div>
+            <ArticleCard article={article} />
           </Link>
         ))}
         {articles.length === 0 && (
