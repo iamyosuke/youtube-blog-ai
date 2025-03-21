@@ -1,17 +1,17 @@
-import { InferModel } from 'drizzle-orm';
+import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import { users, articles, transcripts } from '../db/schema';
 
 // Users table types
-export type User = InferModel<typeof users>;
-export type NewUser = InferModel<typeof users, 'insert'>;
+export type User = InferSelectModel<typeof users>;
+export type NewUser = InferInsertModel<typeof users>;
 
 // Articles table types
-export type Article = InferModel<typeof articles>;
-export type NewArticle = InferModel<typeof articles, 'insert'>;
+export type Article = InferSelectModel<typeof articles>;
+export type NewArticle = InferInsertModel<typeof articles>;
 
 // Transcripts table types
-export type Transcript = InferModel<typeof transcripts>;
-export type NewTranscript = InferModel<typeof transcripts, 'insert'>;
+export type Transcript = InferSelectModel<typeof transcripts>;
+export type NewTranscript = InferInsertModel<typeof transcripts>;
 
 // API Response types
 
