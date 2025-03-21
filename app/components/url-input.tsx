@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useRouter } from 'next/navigation'
 import { ErrorMessage } from './error-message'
 import { getYouTubeTranscriptAction } from '../(server)/actions/getYouTubeTranscriptAction'
 
@@ -10,6 +11,7 @@ type UrlFormData = {
 }
 
 export function URLInput() {
+  const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { register, handleSubmit, formState: { errors } } = useForm<UrlFormData>()
@@ -22,6 +24,9 @@ export function URLInput() {
       const result = await getYouTubeTranscriptAction(formData)
       if (result.success) {
         setIsLoading(false)
+        if (result.data?.redirect) {
+          router.push(result.data.redirect)
+        }
       } else {
         setError(result.error?.message || 'エラーが発生しました')
         setIsLoading(false)

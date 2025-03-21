@@ -1,0 +1,2 @@
+ALTER TABLE "youtube_blog_ai"."articles" ADD COLUMN "transcriptId" uuid NOT NULL;--> statement-breakpoint
+ALTER TABLE "youtube_blog_ai"."articles" ADD CONSTRAINT "articles_transcriptId_transcripts_id_fk" FOREIGN KEY ("transcriptId") REFERENCES "youtube_blog_ai"."transcripts"("id") ON DELETE no action ON UPDATE no action;

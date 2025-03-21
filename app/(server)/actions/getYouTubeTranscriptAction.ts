@@ -3,6 +3,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { YoutubeTranscript } from 'youtube-transcript'
 import { createTranscript } from '../(services)/transcripts'
+import { generateAndSaveArticle } from '../(services)/articles'
 import { YouTubeTranscriptSegment } from '@/app/lib/types'
 import { revalidatePath } from 'next/cache'
 // URLからビデオIDを抽出する関数
@@ -62,6 +63,7 @@ export async function getYouTubeTranscriptAction(formData: FormData) {
 
     console.log(transcript[0].language);
 
+    // 字幕を保存
     await createTranscript({
       userId: userId.userId as string,
       videoId: videoId as string,
@@ -69,13 +71,22 @@ export async function getYouTubeTranscriptAction(formData: FormData) {
       language: transcript[0].language as string, 
     });
 
-    revalidatePath('/');
+    // 記事を生成して保存
+    const article = await generateAndSaveArticle(
+      userId.userId as string,
+      videoId as string,
+      transcript[0].language as string
+    );
 
+    revalidatePath('/');
+    
+    // 記事の生成に成功した場合は記事ページにリダイレクト
     return {
       success: true,
       data: {
         videoId,
-        transcript
+        transcript,
+        redirect: `/articles/${article.id}`
       }
     };
 

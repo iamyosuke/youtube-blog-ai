@@ -17,6 +17,7 @@ export const articles = mySchema.table('articles', {
   id: uuid().primaryKey().defaultRandom(),
   userId: text().notNull(),
   videoId: text().notNull(),
+  transcriptId: uuid().notNull().references(() => transcripts.id),
   title: text().notNull(),
   content: text().notNull(),
   language: text().notNull(),
