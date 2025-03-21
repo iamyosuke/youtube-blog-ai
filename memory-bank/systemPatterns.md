@@ -3,112 +3,150 @@
 ## アーキテクチャ概要
 ```mermaid
 graph TD
-    Client[クライアント層] --> |1. YouTube URL送信| API[API層]
-    API --> |2. 字幕取得| YT[YouTube API]
-    API --> |3. テキスト生成| OpenAI[OpenAI API]
-    API --> |4. データ永続化| DB[Supabase]
+    Client[Server Components] --> |1. Server Action呼び出し| Action[Server Actions]
+    Action --> |2. サービス呼び出し| Service[サービスレイヤー]
+    Service --> |3. 外部API呼び出し| External[外部API]
+    Service --> |4. データ永続化| DB[Supabase]
     Client --> |5. 認証| Auth[Clerk認証]
 ```
 
 ## システムレイヤー
 ### 1. プレゼンテーション層
-- Next.jsによるServer ComponentsとClient Componentsの適切な使い分け
-- レスポンシブデザインによるマルチデバイス対応
-- プログレッシブエンハンスメントの採用
+- Server Componentsを優先使用
+- Client Componentsは必要最小限（例：インタラクティブなUI要素のみ）
+- ルートごとに分離されたコンポーネント構造
+  - 例：articles/components/
+  - 例：dashboard/components/
 
-### 2. アプリケーション層
-- サービスレイヤーによるビジネスロジックの分離（app/services）
-- Server Actionsによるサーバーサイド処理の最適化
-- APIルートによるRESTful APIの提供
-- リクエスト・レスポンスの標準化
-- エラーハンドリングの一元管理
+### 2. サーバーサイド構造
+- サーバーロジックの集中管理
+  ```
+  app/
+  ├── (server)/
+  │   ├── services/     # ドメインロジック・DB操作
+  │   │   ├── articles.ts
+  │   │   ├── youtube.ts
+  │   │   └── openai.ts
+  │   └── actions/      # Server Actions
+  │       ├── articles.ts
+  │       └── generate.ts
+  ```
+- Server Actionsによるフォーム処理
+- APIルートの最小限使用
 
-### 3. ドメイン層
-- 字幕処理ドメイン
-  - 字幕取得
-  - テキスト前処理
-  - 言語判定
-- 記事生成ドメイン
-  - プロンプト管理
-  - 記事構造化
-  - 品質チェック
+### 3. ドメインロジック（サービスレイヤー）
+- モデルごとに分離されたサービス
+  ```typescript
+  // app/(server)/services/articles.ts
+  export class ArticleService {
+    // Drizzle ORMの型を活用
+    async createArticle(data: InsertArticle) {
+      return db.insert(articles).values(data);
+    }
+  }
+  ```
+- ビジネスロジックの集中管理
+- 外部APIとの通信処理
 
 ### 4. インフラストラクチャ層
-- Vercelでのサーバーレスデプロイ
-- Supabase + Drizzle ORMでのデータ永続化
+- Vercelでのサーバーレス構成
+- Supabaseによるデータ永続化
+  - Drizzle ORMによる型安全なクエリ
+  - スキーマファーストアプローチ
 - Clerkによる認証基盤
 
 ## データフロー
 ```mermaid
 sequenceDiagram
     participant User as ユーザー
-    participant Frontend as フロントエンド
-    participant API as APIルート
-    participant YT as YouTube API
-    participant AI as OpenAI API
-    participant DB as Supabase
+    participant SC as Server Component
+    participant SA as Server Action
+    participant SV as Service
+    participant Ex as 外部API
+    participant DB as Database
 
-    User->>Frontend: URL入力
-    Frontend->>API: リクエスト送信
-    API->>YT: 字幕取得
-    YT-->>API: 字幕データ
-    API->>AI: 記事生成リクエスト
-    AI-->>API: 生成記事
-    API->>DB: 記事保存
-    API-->>Frontend: レスポンス
-    Frontend-->>User: 記事表示
+    User->>SC: フォーム送信
+    SC->>SA: Server Action呼び出し
+    SA->>SV: サービスメソッド呼び出し
+    SV->>Ex: API要求
+    Ex-->>SV: レスポンス
+    SV->>DB: データ永続化
+    DB-->>SV: 保存確認
+    SV-->>SA: 処理結果
+    SA-->>SC: レスポンス
+    SC-->>User: UI更新
 ```
 
-## デザインパターン
-### 1. Repository Pattern
-- サービスレイヤーでのデータアクセス抽象化
-  - articles.ts: 記事関連の操作
-  - transcripts.ts: 字幕関連の操作
-- Drizzle ORMによるタイプセーフなクエリ構築
-- Supabaseリソースへの統一的なアクセス
+## 実装パターン
+### 1. Server Component優先パターン
+```typescript
+// app/articles/page.tsx
+export default async function ArticlesPage() {
+  // Server Componentで直接データフェッチ
+  const articles = await db.query.articles.findMany();
+  
+  return (
+    <div>
+      {articles.map(article => (
+        <ArticleCard key={article.id} article={article} />
+      ))}
+    </div>
+  );
+}
+```
 
-### 2. Service Layer Pattern
-- ビジネスロジックの分離
-- データベース操作の一元管理
-- Server ActionsとAPIルートでの再利用
+### 2. Server Actionパターン
+```typescript
+// app/(server)/actions/articles.ts
+'use server'
 
-### 3. Server Actions Pattern
-- フォーム処理の最適化
-- クライアントサイドキャッシュの活用
-- 楽観的更新の実装
+export async function createArticle(data: FormData) {
+  // サービスレイヤーの呼び出し
+  const articleService = new ArticleService();
+  return articleService.createArticle({
+    // Drizzle ORMの型を使用
+    title: data.get('title') as string,
+    content: data.get('content') as string,
+  });
+}
+```
 
-### 2. Factory Pattern
-- 記事生成プロセスの抽象化
-- プロンプトテンプレートの管理
+### 3. サービスレイヤーパターン
+```typescript
+// app/(server)/services/articles.ts
+export class ArticleService {
+  async generateFromYoutube(url: string) {
+    const transcript = await this.youtubeService.getTranscript(url);
+    const article = await this.openaiService.generateArticle(transcript);
+    return this.createArticle(article);
+  }
+}
+```
 
-### 3. Strategy Pattern
-- 複数言語対応の字幕処理
-- 異なる記事フォーマットの生成
-
-### 4. Observer Pattern
-- 処理状態の監視
-- プログレス表示の実装
-
-## エラーハンドリング戦略
-1. **入力バリデーション**
-   - URL形式チェック
-   - 言語サポートチェック
-
-2. **プロセスエラー**
-   - 字幕取得失敗
-   - AI生成エラー
-   - DB操作エラー
-
-3. **リカバリー手順**
-   - 自動リトライ
-   - グレースフルデグラデーション
-   - ユーザーへのフィードバック
+## エラー処理
+```typescript
+// app/(server)/services/base.ts
+export class BaseService {
+  protected handleError(error: unknown) {
+    // エラーログ記録
+    console.error(error);
+    
+    // 構造化されたエラーレスポンス
+    return {
+      success: false,
+      error: {
+        message: error instanceof Error ? error.message : '不明なエラーが発生しました',
+      }
+    };
+  }
+}
+```
 
 ## キャッシング戦略
-1. **アプリケーションキャッシュ**
-   - 生成済み記事のキャッシュ
-   - 字幕データのキャッシュ
+1. **React Server Components**
+   - デフォルトのキャッシング動作を活用
+   - Route Segment Config でのカスタマイズ
 
-2. **APIキャッシュ**
-   - YouTube API応答のキャッシュ
-   - OpenAI API応答のキャッシュ
+2. **Server Actions**
+   - クライアントキャッシュの活用
+   - 楽観的更新の実装
