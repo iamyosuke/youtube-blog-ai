@@ -59,20 +59,50 @@ ${transcriptContent}
     const response = await result.response;
     const text = response.text();
     
-    // JSONをパース
-    const article = JSON.parse(text);
+    // レスポンステキストからJSONを抽出して正規化
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('生成された記事のフォーマットが不正です');
+    }
+    
+    // 抽出したテキストを正規化
+    let jsonText = jsonMatch[0]
+      // 改行を削除
+      .replace(/\n/g, ' ')
+      // 連続する空白を1つに
+      .replace(/\s+/g, ' ')
+      // HTMLタグ内の余分な空白を削除
+      .replace(/>\s+</g, '><')
+      // 特殊文字をエスケープ
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
 
-    // 記事を保存
-    const createdArticle = await createArticle({
-      userId,
-      videoId,
-      transcriptId: transcriptData.id,
-      title: article.title,
-      content: article.content,
-      language,
-    });
+    console.log('Normalized JSON:', jsonText);
+    
+    try {
+      // JSONをパース
+      const article = JSON.parse(jsonText);
+      
+      // 必要なプロパティの存在チェック
+      if (!article.title || !article.content) {
+        throw new Error('記事のタイトルまたは本文が見つかりません');
+      }
+      
+      // 記事を保存
+      const createdArticle = await saveArticle({
+        userId,
+        videoId,
+        transcriptId: transcriptData.id,
+        title: article.title,
+        content: article.content,
+        language,
+      });
 
-    return createdArticle;
+      return createdArticle;
+    } catch (error) {
+      console.error('JSON Parse Error:', error);
+      console.error('Raw JSON Text:', jsonText);
+      throw new Error('記事の生成結果を解析できませんでした: ' + (error as Error).message);
+    }
   } catch (error) {
     console.error('Error generating article:', error);
     throw error;
@@ -80,9 +110,9 @@ ${transcriptContent}
 };
 
 /**
- * 記事を作成する
+ * 記事を保存する
  */
-export const createArticle = async (data: NewArticle): Promise<Article> => {
+export const saveArticle = async (data: NewArticle): Promise<Article> => {
   try {
     const [article] = await db
       .insert(articles)

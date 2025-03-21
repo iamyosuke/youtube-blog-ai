@@ -1,37 +1,75 @@
 import { auth } from '@clerk/nextjs/server';
 import { getArticle } from '../../(server)/(services)/articles';
 import { notFound } from 'next/navigation';
+import { Metadata } from 'next';
+// 動的メタデータの生成
+export async function generateMetadata({ 
+  params: pageParams
+}: { 
+  params: { id: string }
+}): Promise<Metadata> {
+  const [params] = await Promise.all([
+    Promise.resolve(pageParams)
+  ]);
+  const article = await getArticle(params.id);
+  
+  if (!article) {
+    return {
+      title: '記事が見つかりません',
+    };
+  }
+
+  return {
+    title: article.title,
+    description: `${article.title}の記事ページです。`,
+  };
+}
 
 export default async function ArticlePage({
-  params
+  params: pageParams
 }: {
   params: { id: string }
 }) {
-  const { userId } = await auth();
-  if (!userId) {
-    return <div>ログインが必要です</div>;
-  }
+  const [params] = await Promise.all([
+    Promise.resolve(pageParams)
+  ]);
 
   const article = await getArticle(params.id);
+  
   if (!article) {
     notFound();
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <article className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
-        <div className="mb-8">
-          <div className="text-gray-600 mb-2">
-            作成日: {article.createdAt ? new Date(article.createdAt).toLocaleDateString('ja-JP') : '不明'}
+        <header className="mb-8">
+          {/* タイトル */}
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl mb-4">
+            {article.title}
+          </h1>
+          
+          {/* メタ情報 */}
+          <div className="flex items-center text-sm text-gray-600">
+            <time dateTime={article.createdAt?.toISOString()}>
+              {article.createdAt 
+                ? new Date(article.createdAt).toLocaleDateString('ja-JP', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })
+                : '不明'
+              }
+            </time>
           </div>
-        </div>
-        
-        {/* HTML形式のコンテンツを安全に表示 */}
+        </header>
+
+        {/* 本文 */}
         <div 
-          className="prose prose-lg max-w-none"
+          className="prose article-content"
           dangerouslySetInnerHTML={{ __html: article.content }}
         />
       </div>
-    </div>
+    </article>
   );
 }
