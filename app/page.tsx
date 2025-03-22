@@ -4,13 +4,9 @@ import { URLInput } from './components/url-input';
 import { getArticles } from './(server)/(services)/articles';
 
 // 記事データを取得
-async function getData() {
-  const articles = await getArticles();
-  return { articles };
-}
 
 export default async function Home() {
-  const { articles } = await getData();
+  const articles = await getArticles();
   return (
     <main className="min-h-screen bg-gradient-to-b from-orange-50 to-white">
       {/* ヘッダーセクション */}
@@ -29,9 +25,7 @@ export default async function Home() {
       </section>
 
       {/* フローティングカードセクション */}
-      <section className="mt-16">
         <RotatingCardsContainer articles={articles} />
-      </section>
     </main>
   );
 }
