@@ -1,38 +1,45 @@
-'use client';
+"use client";
 
-import { motion } from 'framer-motion';
-import { ReactNode } from 'react';
+import Link from "next/link";
+import Image from "next/image";
+import { YouTubeService } from "@/app/(server)/services/youtube";
+import type { Article } from "@/lib/types";
 
 interface RotatingCardProps {
-  children: ReactNode;
-  index: number;
-  total: number;
+    article: Article;
+    index: number;
+    total: number;
 }
 
-export const RotatingCard = ({ children, index, total }: RotatingCardProps) => {
-  // カードの位置を計算（円周上に均等に配置）
-  const angle = (index / total) * 360;
-  const radius = 400; // 回転の半径
-
-  return (
-    <motion.div
-      className="absolute"
-      style={{
-        transformStyle: 'preserve-3d',
-        transform: `rotateY(${angle}deg) translateZ(${radius}px)`,
-        backfaceVisibility: 'hidden',
-      }}
-      whileHover={{
-        scale: 1.05,
-        zIndex: 10,
-        transition: {
-          duration: 0.3,
-        },
-      }}
-    >
-      <div className="w-[280px] overflow-hidden backdrop-blur-md bg-gradient-to-b from-orange-50/80 to-orange-100/10 border border-orange-200/20 rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl">
-        {children}
-      </div>
-    </motion.div>
-  );
+export const RotatingCard = ({ article, index, total }: RotatingCardProps) => {
+    return (
+        <div
+            className="inline-block mx-2"
+            style={{
+                minWidth: "280px",
+            }}
+        >
+            <div className="w-[280px] overflow-hidden backdrop-blur-md bg-gradient-to-b from-orange-50/80 to-orange-100/10 border border-orange-200/20 rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl">
+                <Link href={`/articles/${article.id}`}>
+                    <div className="relative aspect-video">
+                        <Image
+                            src={YouTubeService.getThumbnailUrl(
+                                article.videoId
+                            )}
+                            alt={article.title}
+                            fill
+                            className="object-cover"
+                            sizes="280px"
+                            priority={false}
+                        />
+                    </div>
+                    <div className="p-4">
+                        <h3 className="text-lg font-semibold mb-2 text-gray-800 line-clamp-2">
+                            {article.title}
+                        </h3>
+                    </div>
+                </Link>
+            </div>
+        </div>
+    );
 };
