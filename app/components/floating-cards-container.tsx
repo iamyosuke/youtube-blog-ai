@@ -6,15 +6,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { YouTubeService } from '@/app/(server)/services/youtube';
 import type { Article } from '@/lib/types';
-import { useState, useCallback } from 'react';
 
 interface FloatingCardsContainerProps {
   articles: Article[];
-}
-
-interface CardPosition {
-  x: number;
-  y: number;
 }
 
 export const FloatingCardsContainer = ({ articles }: FloatingCardsContainerProps) => {
@@ -23,54 +17,24 @@ export const FloatingCardsContainer = ({ articles }: FloatingCardsContainerProps
     threshold: 0.1,
   });
 
-  const [cardPositions, setCardPositions] = useState<Record<string, CardPosition>>({});
-
-  // 衝突検出
-  const checkCollision = (
-    id: string,
-    newPosition: CardPosition,
-    threshold: number = 200
-  ): boolean => {
-    for (const [otherId, otherPosition] of Object.entries(cardPositions)) {
-      if (otherId === id) continue;
-
-      const distance = Math.sqrt(
-        Math.pow(newPosition.x - otherPosition.x, 2) +
-        Math.pow(newPosition.y - otherPosition.y, 2)
-      );
-
-      if (distance < threshold) {
-        return true;
-      }
-    }
-    return false;
-  };
-
-  // カード位置の更新
-  const handlePositionUpdate = useCallback((id: string, position: CardPosition) => {
-    setCardPositions(prev => ({
-      ...prev,
-      [id]: position
-    }));
-  }, []);
-
   // 初期配置を計算（グリッドベース）
-  const calculateInitialPosition = useCallback((index: number, total: number) => {
-    const SAFE_MARGIN = 200;
+  const calculateInitialPosition = (index: number, total: number) => {
+    const SAFE_MARGIN = 200; // カードが画面外に出ないようにするマージン
     const gridSize = Math.ceil(Math.sqrt(total));
     const cellWidth = (100 - (SAFE_MARGIN / 8)) / gridSize;
     const gridX = index % gridSize;
     const gridY = Math.floor(index / gridSize);
     
+    // グリッドセル内でのランダムな位置（中央寄り）
     const x = SAFE_MARGIN/16 + cellWidth * gridX + (cellWidth * 0.5);
     const y = SAFE_MARGIN/16 + cellWidth * gridY + (cellWidth * 0.5);
     
     return {
       initialX: x,
       initialY: y,
-      zIndex: index,
+      zIndex: index, // 重なり防止のための基本z-index
     };
-  }, []);
+  };
 
   return (
     <div 
@@ -95,7 +59,6 @@ export const FloatingCardsContainer = ({ articles }: FloatingCardsContainerProps
             }}
           >
             <FloatingCard 
-              id={article.id}
               delay={index * 0.2}
               safeArea={{
                 top: 150,
@@ -104,7 +67,6 @@ export const FloatingCardsContainer = ({ articles }: FloatingCardsContainerProps
                 right: 150
               }}
               baseZIndex={position.zIndex}
-              onPositionUpdate={handlePositionUpdate}
             >
               <Link 
                 href={`/articles/${article.id}`} 
