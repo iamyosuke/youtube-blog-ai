@@ -14,15 +14,15 @@ export const RotatingCardsContainer = ({ articles }: RotatingCardsContainerProps
   // 自動回転のアニメーション
   useEffect(() => {
     const interval = setInterval(() => {
-      setRotation((prev) => (prev + 0.5) % 360);
-    }, 50);
+      setRotation((prev) => (prev + 0.15) % 360);
+    }, 16);
     return () => clearInterval(interval);
   }, []);
 
   // 画面サイズに応じて半径を計算
   const calculateRadius = () => {
-    if (typeof window === 'undefined') return 400; // SSR対応
-    return Math.min(Math.max(window.innerWidth * 0.3, 300), 600);
+    if (typeof window === 'undefined') return 150; // SSR対応
+    return Math.min(Math.max(window.innerWidth * 0.175, 150), 250);
   };
   
   const [radius, setRadius] = useState(calculateRadius());
@@ -38,14 +38,14 @@ export const RotatingCardsContainer = ({ articles }: RotatingCardsContainerProps
   }, []);
   
   return (
-    <div className="w-full h-[clamp(400px,60vh,600px)] overflow-hidden flex items-center justify-center">
+    <div className="w-full h-[clamp(250px,40vh,350px)] overflow-hidden flex items-center justify-center">
       <div
         className="relative"
         style={{
           transformStyle: 'preserve-3d',
-          perspective: '1000px',
-          width: `clamp(400px, 80vw, ${radius * 2}px)`,
-          height: `clamp(400px, 80vw, ${radius * 2}px)`,
+          perspective: '2000px',
+          width: `clamp(600px, 90vw, ${radius * 2}px)`,
+          height: `clamp(600px, 90vw, ${radius * 2}px)`,
         }}
       >
         {articles.map((article, index) => {
@@ -60,6 +60,7 @@ export const RotatingCardsContainer = ({ articles }: RotatingCardsContainerProps
               className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
               style={{
                 transform: `translate(-50%, -50%) translate3d(${x}px, 0, ${z}px) rotateY(${angle}deg)`,
+                transition: 'transform 0.1s linear',
                 zIndex: Math.round(z),
               }}
             >

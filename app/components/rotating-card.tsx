@@ -14,15 +14,17 @@ interface RotatingCardProps {
 export const RotatingCard = ({ article, index, total }: RotatingCardProps) => {
     return (
         <div
-            className="w-[clamp(160px,15vw,200px)]"
+            className="w-[clamp(140px,15vw,200px)]"
             style={{
-                transformStyle: 'preserve-3d',
+                transformStyle: 'flat',
                 transition: 'transform 0.3s ease-out',
+                backfaceVisibility: 'hidden',
+                willChange: 'transform',
             }}
         >
-            <div className="w-full overflow-hidden backdrop-blur-md bg-gradient-to-b from-orange-50/80 to-orange-100/10 border border-orange-200/20 rounded-lg shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl">
+            <div className="w-full overflow-hidden backdrop-blur-md bg-gradient-to-b from-orange-50/80 to-orange-100/10 border border-orange-200/20 rounded-lg shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl [backface-visibility:hidden] [transform-style:preserve-3d]">
                 <Link href={`/articles/${article.id}`}>
-                    <div className="relative aspect-video">
+                    <div className="relative" style={{ aspectRatio: '2/1' }}>
                         <Image
                             src={YouTubeService.getThumbnailUrl(
                                 article.videoId
@@ -30,12 +32,13 @@ export const RotatingCard = ({ article, index, total }: RotatingCardProps) => {
                             alt={article.title}
                             fill
                             className="object-cover"
-                            sizes="280px"
-                            priority={false}
+                            sizes="(max-width: 640px) 320px, (max-width: 1024px) 360px, 400px"
+                            priority={true}
+                            quality={100}
                         />
                     </div>
-                    <div className="p-4">
-                        <h3 className="text-lg font-semibold mb-2 text-gray-800 line-clamp-2">
+                    <div className="py-1.5 px-2">
+                        <h3 className="text-xs font-medium text-gray-800 antialiased subpixel-antialiased tracking-tight [text-rendering:optimizeLegibility]" style={{ transform: 'translateZ(0)' }}>
                             {article.title}
                         </h3>
                     </div>
