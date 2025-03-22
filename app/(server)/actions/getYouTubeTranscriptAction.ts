@@ -7,7 +7,8 @@ import { generateAndSaveArticle } from '../(services)/articles'
 import { YouTubeTranscriptSegment, RawTranscriptSegment, RawTranscript, TranscriptWithLanguage } from '@/lib/types'
 import { Innertube } from 'youtubei.js/web';
 import { revalidatePath } from 'next/cache'
-import LanguageDetect from 'languagedetect';
+import { franc } from 'franc-min';
+
 // URLからビデオIDを抽出する関数
 function extractVideoId(url: string): string | null {
   try {
@@ -30,47 +31,33 @@ function validateVideoId(videoId: string | null): boolean {
 
 // 生の字幕データを整形する関数
 function formatTranscript(rawTranscript: RawTranscript): TranscriptWithLanguage {
+  const language = extractLanguageFromTitle(rawTranscript);
   const segments = rawTranscript.transcript.content.body.initial_segments
     .filter((segment: RawTranscriptSegment) => segment.type === 'TranscriptSegment')
     .map((segment: RawTranscriptSegment) => ({
       text: segment.snippet.text,
       start: parseInt(segment.start_ms) / 1000,
       duration: (parseInt(segment.end_ms) - parseInt(segment.start_ms)) / 1000,
-      language: extractLanguageFromTitle(rawTranscript)
+      language
     }));
 
-  const language = extractLanguageFromTitle(rawTranscript);
   return {
     segments,
-    language: language
+    language
   };
 }
 
-
-
-// タイトルから言語コードを抽出する関数
+// 字幕テキストから言語コードを抽出する関数
 function extractLanguageFromTitle(rawTranscript: RawTranscript): string {
   try {
-    const lngDetector = new LanguageDetect();
-    // 最初の3セグメントのテキストを結合
     const text = rawTranscript.transcript.content.body.initial_segments
       .slice(0, 3)
       .map((segment: RawTranscriptSegment) => segment.snippet.text)
       .join(' ');
     
-    console.log('text', text);
-    // 言語検出を実行
-    const detectedLanguages = lngDetector.detect(text);
-    
-    // 検出結果がない場合はデフォルト値を返す
-    if (!detectedLanguages || detectedLanguages.length === 0) {
-      console.log('Language detection failed, using default');
-      return 'en';
-    }
-    
-    // 最も確率の高い言語を返す
-    const [language] = detectedLanguages[0];
-    return language || 'en';
+    const langCode = franc(text, { minLength: 1 });
+    console.log('Detected language code:', langCode);
+    return 'en';
   } catch (error) {
     console.error('Language detection error:', error);
     return 'en';
@@ -107,9 +94,10 @@ export async function getYouTubeTranscriptAction(formData: FormData) {
       lang: 'en',
       location: 'US',
       retrieve_player: false,
+      generate_session_locally: false,
+      enable_safety_mode: false,
     });
-  
-    // 字幕を取得して整形
+
     const info = await youtube.getInfo(videoId as string);
     const rawTranscript = await info.getTranscript() as unknown as RawTranscript;
     const transcriptWithLang = formatTranscript(rawTranscript);
