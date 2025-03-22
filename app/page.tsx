@@ -1,4 +1,5 @@
 import { FloatingCardsContainer } from './components/floating-cards-container';
+import { RotatingCardsContainer } from './components/rotating-cards-container';
 import { URLInput } from './components/url-input';
 import { getArticles } from './(server)/(services)/articles';
 
@@ -29,7 +30,7 @@ export default async function Home() {
 
       {/* フローティングカードセクション */}
       <section className="mt-16">
-        <FloatingCardsContainer articles={articles} />
+        <RotatingCardsContainer articles={articles} />
       </section>
     </main>
   );
