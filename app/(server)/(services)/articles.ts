@@ -66,7 +66,7 @@ ${transcriptContent}
     }
     
     // 抽出したテキストを正規化
-    let jsonText = jsonMatch[0]
+    const jsonText = jsonMatch[0]
       // 改行を削除
       .replace(/\n/g, ' ')
       // 連続する空白を1つに

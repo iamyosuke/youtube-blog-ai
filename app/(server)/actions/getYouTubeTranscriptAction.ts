@@ -91,13 +91,14 @@ export async function getYouTubeTranscriptAction(formData: FormData) {
     };
 
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[Transcript Error]:', error);
+    const errorMessage = error instanceof Error ? error.message : '字幕の取得に失敗しました';
     return {
       success: false,
       error: {
         code: 'INTERNAL_ERROR',
-        message: error.message || '字幕の取得に失敗しました'
+        message: errorMessage
       }
     };
   }

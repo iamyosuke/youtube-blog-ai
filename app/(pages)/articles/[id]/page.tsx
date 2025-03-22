@@ -4,14 +4,13 @@ import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import Image from 'next/image';
 import { YouTubeService } from '@/app/(server)/services/youtube';
-// 動的メタデータの生成
+
 export async function generateMetadata({ 
-  params 
-}: { 
-  params: { id: string } 
+  params: { id }
+}: {
+  params: { id: string }
 }): Promise<Metadata> {
-  const resolvedParams = await params;
-  const article = await getArticle(resolvedParams.id);
+  const article = await getArticle(id);
   
   if (!article) {
     return {
@@ -26,12 +25,11 @@ export async function generateMetadata({
 }
 
 export default async function ArticlePage({
-  params
+  params: { id }
 }: {
   params: { id: string }
 }) {
-  const resolvedParams = await params;
-  const article = await getArticle(resolvedParams.id);
+  const article = await getArticle(id);
   
   if (!article) {
     notFound();
