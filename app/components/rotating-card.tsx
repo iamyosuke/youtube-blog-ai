@@ -14,12 +14,13 @@ interface RotatingCardProps {
 export const RotatingCard = ({ article, index, total }: RotatingCardProps) => {
     return (
         <div
-            className="inline-block mx-2"
+            className="w-[clamp(160px,15vw,200px)]"
             style={{
-                minWidth: "280px",
+                transformStyle: 'preserve-3d',
+                transition: 'transform 0.3s ease-out',
             }}
         >
-            <div className="w-[280px] overflow-hidden backdrop-blur-md bg-gradient-to-b from-orange-50/80 to-orange-100/10 border border-orange-200/20 rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl">
+            <div className="w-full overflow-hidden backdrop-blur-md bg-gradient-to-b from-orange-50/80 to-orange-100/10 border border-orange-200/20 rounded-lg shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl">
                 <Link href={`/articles/${article.id}`}>
                     <div className="relative aspect-video">
                         <Image
