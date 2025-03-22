@@ -72,7 +72,7 @@ export default async function ArticlePage({
           </div>
         </header>
 
-        {/* 本文 */}
+        本文
         <div 
           className="prose article-content"
           dangerouslySetInnerHTML={{ __html: article.content }}

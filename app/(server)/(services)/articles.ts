@@ -132,12 +132,11 @@ export const saveArticle = async (data: NewArticle): Promise<Article> => {
 /**
  * 記事一覧を取得する
  */
-export const getArticles = async (userId: string): Promise<Article[]> => {
+export const getArticles = async (): Promise<Article[]> => {
   try {
     const result = await db
       .select()
-      .from(articles)
-      .where(eq(articles.userId, userId));
+      .from(articles);
     
     return result;
   } catch (error) {

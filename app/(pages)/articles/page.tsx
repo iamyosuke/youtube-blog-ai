@@ -9,7 +9,7 @@ export default async function ArticlesPage() {
     return <div>ログインが必要です</div>;
   }
 
-  const articles = await getArticles(userId);
+  const articles = await getArticles();
 
   return (
     <div className="container mx-auto px-4 py-8">
