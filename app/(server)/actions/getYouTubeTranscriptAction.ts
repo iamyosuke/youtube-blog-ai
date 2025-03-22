@@ -1,11 +1,13 @@
 'use server'
 
 import { auth } from '@clerk/nextjs/server'
-import { YoutubeTranscript } from 'youtube-transcript'
+import { TranscriptResponse, YoutubeTranscript } from 'youtube-transcript'
 import { createTranscript } from '../(services)/transcripts'
 import { generateAndSaveArticle } from '../(services)/articles'
-import { YouTubeTranscriptSegment } from '@/lib/types'
+import { YouTubeTranscriptSegment, RawTranscriptSegment, RawTranscript, TranscriptWithLanguage } from '@/lib/types'
+import { Innertube } from 'youtubei.js/web';
 import { revalidatePath } from 'next/cache'
+import LanguageDetect from 'languagedetect';
 // URLからビデオIDを抽出する関数
 function extractVideoId(url: string): string | null {
   try {
@@ -24,6 +26,55 @@ function extractVideoId(url: string): string | null {
 // ビデオIDを検証する関数
 function validateVideoId(videoId: string | null): boolean {
   return Boolean(videoId && /^[a-zA-Z0-9_-]{11}$/.test(videoId));
+}
+
+// 生の字幕データを整形する関数
+function formatTranscript(rawTranscript: RawTranscript): TranscriptWithLanguage {
+  const segments = rawTranscript.transcript.content.body.initial_segments
+    .filter((segment: RawTranscriptSegment) => segment.type === 'TranscriptSegment')
+    .map((segment: RawTranscriptSegment) => ({
+      text: segment.snippet.text,
+      start: parseInt(segment.start_ms) / 1000,
+      duration: (parseInt(segment.end_ms) - parseInt(segment.start_ms)) / 1000,
+      language: extractLanguageFromTitle(rawTranscript)
+    }));
+
+  const language = extractLanguageFromTitle(rawTranscript);
+  return {
+    segments,
+    language: language
+  };
+}
+
+
+
+// タイトルから言語コードを抽出する関数
+function extractLanguageFromTitle(rawTranscript: RawTranscript): string {
+  try {
+    const lngDetector = new LanguageDetect();
+    // 最初の3セグメントのテキストを結合
+    const text = rawTranscript.transcript.content.body.initial_segments
+      .slice(0, 3)
+      .map((segment: RawTranscriptSegment) => segment.snippet.text)
+      .join(' ');
+    
+    console.log('text', text);
+    // 言語検出を実行
+    const detectedLanguages = lngDetector.detect(text);
+    
+    // 検出結果がない場合はデフォルト値を返す
+    if (!detectedLanguages || detectedLanguages.length === 0) {
+      console.log('Language detection failed, using default');
+      return 'en';
+    }
+    
+    // 最も確率の高い言語を返す
+    const [language] = detectedLanguages[0];
+    return language || 'en';
+  } catch (error) {
+    console.error('Language detection error:', error);
+    return 'en';
+  }
 }
 
 export async function getYouTubeTranscriptAction(formData: FormData) {
@@ -52,44 +103,42 @@ export async function getYouTubeTranscriptAction(formData: FormData) {
       };
     }
 
-    // 字幕を取得
-    const rawTranscript = await YoutubeTranscript.fetchTranscript(videoId as string);
-    const transcript = rawTranscript.map(segment => ({
-      text: segment.text,
-      start: segment.offset,
-      duration: segment.duration,
-      language: segment.lang
-    }));
-
-    console.log(transcript[0].language);
-
+    const youtube = await Innertube.create({
+      lang: 'en',
+      location: 'US',
+      retrieve_player: false,
+    });
+  
+    // 字幕を取得して整形
+    const info = await youtube.getInfo(videoId as string);
+    const rawTranscript = await info.getTranscript() as unknown as RawTranscript;
+    const transcriptWithLang = formatTranscript(rawTranscript);
+    
     // 字幕を保存
     await createTranscript({
       userId: userId.userId as string,
       videoId: videoId as string,
-      transcript: JSON.stringify(transcript),
-      language: transcript[0].language as string, 
+      transcript: JSON.stringify(transcriptWithLang.segments),
+      language: transcriptWithLang.language
     });
 
     // 記事を生成して保存
     const article = await generateAndSaveArticle(
       userId.userId as string,
       videoId as string,
-      transcript[0].language as string
+      transcriptWithLang.language
     );
 
     revalidatePath('/');
     
-    // 記事の生成に成功した場合は記事ページにリダイレクト
     return {
       success: true,
       data: {
         videoId,
-        transcript,
+        transcript: transcriptWithLang,
         redirect: `/articles/${article.id}`
       }
     };
-
 
   } catch (error: unknown) {
     console.error('[Transcript Error]:', error);

@@ -1,7 +1,7 @@
 import { SliderCardsContainer } from './components/slider-cards-container';
 import { URLInput } from './components/url-input';
 import { getArticles } from './(server)/(services)/articles';
-
+import { Innertube } from 'youtubei.js/web';
 export default async function Home() {
   const articles = await getArticles();
   return (

@@ -13,13 +13,78 @@ export type NewArticle = InferInsertModel<typeof articles>;
 export type Transcript = InferSelectModel<typeof transcripts>;
 export type NewTranscript = InferInsertModel<typeof transcripts>;
 
-// API Response types
+// YouTube API Response types
+interface TranscriptRun {
+  text: string;
+  bold: boolean;
+  italics: boolean;
+  strikethrough: boolean;
+  deemphasize: boolean;
+}
 
- // Start of Selection
+interface TranscriptSnippet {
+  runs: TranscriptRun[];
+  text: string;
+}
+
+interface TranscriptTimeText {
+  text: string;
+}
+
+export interface RawTranscriptSegment {
+  type: string;
+  start_ms: string;
+  end_ms: string;
+  snippet: TranscriptSnippet;
+  start_time_text: TranscriptTimeText;
+  target_id: string;
+}
+
+interface TranscriptBody {
+  initial_segments: RawTranscriptSegment[];
+}
+
+interface TranscriptContent {
+  type: string;
+  body: TranscriptBody;
+}
+
+interface SubMenuItem {
+  title: string;
+  selected: boolean;
+  continuation?: string;
+  endpoint?: {
+    type: string;
+    payload: Record<string, unknown>;
+    metadata: Record<string, unknown>;
+  };
+  subtitle?: string | null;
+}
+
+interface LanguageMenu {
+  type: string;
+  sub_menu_items: SubMenuItem[];
+}
+
+
+
+export interface RawTranscript {
+  transcript: {
+    type: string;
+    content: TranscriptContent;
+    target_id: string;
+  };
+}
+
+// YouTube Transcript types
 export type YouTubeTranscriptSegment = {
-  text: string; // テキスト
-  start: number; // 開始時間
-  duration: number; // 持続時間
-  language: string; // 言語
+  text: string;
+  start: number;
+  duration: number;
+  language: string;
 };
 
+export interface TranscriptWithLanguage {
+  segments: YouTubeTranscriptSegment[];
+  language: string;
+}

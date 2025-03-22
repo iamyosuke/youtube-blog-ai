@@ -13,17 +13,11 @@ interface SliderCardsContainerProps {
 
 export const SliderCardsContainer: React.FC<SliderCardsContainerProps> = ({ articles }) => {
   const settings = {
-    dots: false,
     speed: 3000,
     autoplaySpeed: 0,
     slidesToShow: 5,
     autoplay: true,
-    pauseOnHover: false,
-    centerMode: false,
-    centerPadding: "0",
     cssEase: "linear",
-    variableWidth: false,
-    swipe: false,
     responsive: [
       {
         breakpoint: 1400,
