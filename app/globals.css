@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+
+.slick-track {
+  display: flex !important;
+  align-items: center !important;
+  will-change: transform;
+}
+
 :root {
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 255, 243, 224;

@@ -1,9 +1,6 @@
-import { FloatingCardsContainer } from './components/floating-cards-container';
-import { RotatingCardsContainer } from './components/rotating-cards-container';
+import { SliderCardsContainer } from './components/slider-cards-container';
 import { URLInput } from './components/url-input';
 import { getArticles } from './(server)/(services)/articles';
-
-// 記事データを取得
 
 export default async function Home() {
   const articles = await getArticles();
@@ -24,8 +21,8 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* フローティングカードセクション */}
-        <RotatingCardsContainer articles={articles} />
+      {/* スライダーカードセクション */}
+      <SliderCardsContainer articles={articles} />
     </main>
   );
 }
