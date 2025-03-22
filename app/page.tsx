@@ -1,22 +1,36 @@
-import { URLInput } from './components/url-input'
+import { FloatingCardsContainer } from './components/floating-cards-container';
+import { URLInput } from './components/url-input';
+import { getArticles } from './(server)/(services)/articles';
 
-export default function Home() {
+// 記事データを取得
+async function getData() {
+  const articles = await getArticles();
+  return { articles };
+}
+
+export default async function Home() {
+  const { articles } = await getData();
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-4xl font-bold text-center mb-8">
-        YouTube Blog AI
-      </h1>
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white shadow-sm rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">
-            URLを入力して始める
-          </h2>
+    <main className="min-h-screen bg-gradient-to-b from-orange-50 to-white">
+      {/* ヘッダーセクション */}
+      <section className="py-16 px-4 text-center">
+        <h1 className="text-4xl font-bold text-gray-800 mb-4">
+          YouTube字幕ブログジェネレーター
+        </h1>
+        <p className="text-gray-600 max-w-2xl mx-auto mb-8">
+          YouTubeの動画から自動で魅力的なブログ記事を生成。AIの力で、コンテンツの可能性を広げましょう。
+        </p>
+        
+        {/* URL入力フォーム */}
+        <div className="max-w-xl mx-auto">
           <URLInput />
-          <p className="mt-4 text-sm text-gray-500">
-            YouTubeの動画URLを入力すると、AIが自動で記事を生成します
-          </p>
         </div>
-      </div>
-    </div>
-  )
+      </section>
+
+      {/* フローティングカードセクション */}
+      <section className="mt-16">
+        <FloatingCardsContainer articles={articles} />
+      </section>
+    </main>
+  );
 }

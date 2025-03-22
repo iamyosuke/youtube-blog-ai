@@ -2,71 +2,96 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --background: #ffffff;
-    --foreground: #171717;
-  }
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 255, 243, 224;
+  --background-end-rgb: 255, 255, 255;
+}
 
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --background: #0a0a0a;
-      --foreground: #ededed;
-    }
-  }
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+    to bottom,
+    rgb(var(--background-start-rgb)),
+    rgb(var(--background-end-rgb))
+  );
+  min-height: 100vh;
+}
 
-  body {
-    @apply bg-[--background] text-[--foreground] font-sans;
-  }
+/* フローティングカードのカスタムスタイル */
+.floating-card {
+  position: relative;
+  will-change: transform;
+  transform-style: preserve-3d;
+  perspective: 1000px;
+}
 
-  h1 {
-    @apply scroll-m-20 text-4xl font-bold tracking-tight lg:text-5xl;
-  }
+/* ガラスモーフィズム効果 */
+.glassmorphism {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
 
-  h2 {
-    @apply scroll-m-20 text-3xl font-semibold tracking-tight first:mt-0;
+/* グラデーションアニメーション */
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
   }
-
-  h3 {
-    @apply scroll-m-20 text-2xl font-semibold tracking-tight;
+  50% {
+    background-position: 100% 50%;
   }
-
-  h4 {
-    @apply scroll-m-20 text-xl font-semibold tracking-tight;
-  }
-
-  p {
-    @apply leading-7 [&:not(:first-child)]:mt-6;
-  }
-
-  blockquote {
-    @apply mt-6 border-l-2 pl-6 italic;
-  }
-
-  ul {
-    @apply my-6 ml-6 list-disc [&>li]:mt-2;
-  }
-
-  code {
-    @apply relative rounded bg-gray-100 px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold;
+  100% {
+    background-position: 0% 50%;
   }
 }
 
-@layer components {
-  .prose {
-    @apply prose-zinc max-w-none dark:prose-invert;
-  }
+.gradient-animate {
+  background: linear-gradient(
+    -45deg,
+    rgba(255,243,224,0.8),
+    rgba(255,183,77,0.2),
+    rgba(255,243,224,0.8)
+  );
+  background-size: 200% 200%;
+  animation: gradient 15s ease infinite;
+}
 
-  .prose pre {
-    @apply bg-zinc-900 border border-zinc-700 dark:bg-zinc-800;
-  }
+/* カスタムシャドウ効果 */
+.shadow-float {
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(255, 183, 77, 0.1);
+}
 
-  .prose code {
-    @apply text-zinc-900 dark:text-zinc-200 px-1 py-0.5 border border-zinc-200 dark:border-zinc-800 rounded-lg bg-zinc-100 dark:bg-zinc-900;
-  }
+/* ホバーエフェクト */
+.hover-float {
+  transition: all 0.3s ease;
+}
 
-  .prose pre code {
-    @apply text-zinc-200 dark:text-zinc-200 p-0;
-    border: initial;
+.hover-float:hover {
+  transform: translateY(-5px);
+  box-shadow: 
+    0 10px 20px -5px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05),
+    0 0 0 1px rgba(255, 183, 77, 0.2);
+}
+
+/* アニメーション最適化 */
+* {
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Reduce motion if preferred */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

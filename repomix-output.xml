@@ -44,33 +44,45 @@ The content is organized as follows:
 
 <directory_structure>
 app/
-  api/
+  (pages)/
+    (auth)/
+      sign-up/
+        [[...sign-up]]/
+          page.tsx
     articles/
       [id]/
-        route.ts
-      route.ts
-    transcript/
-      route.ts
+        page.tsx
+      components/
+        article-card.tsx
+      page.tsx
+  (server)/
+    (services)/
+      articles.ts
+      transcripts.ts
+    actions/
+      getYouTubeTranscriptAction.ts
+    services/
+      youtube.ts
   components/
+    auth-button.tsx
     error-message.tsx
+    floating-card.tsx
+    floating-cards-container.tsx
     header.tsx
     url-input.tsx
   db/
     index.ts
     schema.ts
-  services/
-    articles.ts
-    transcripts.ts
-  types/
-    index.ts
-  utils/
-    api.ts
   globals.css
   layout.tsx
   page.tsx
 drizzle/
   0000_loud_tomas.sql
   0001_pale_gorilla_man.sql
+  0002_secret_warbird.sql
+  0003_great_domino.sql
+lib/
+  types.ts
 memory-bank/
   activeContext.md
   productContext.md
@@ -92,487 +104,254 @@ eslint.config.mjs
 middleware.ts
 next.config.ts
 package.json
-postcss.config.mjs
+postcss.config.js
 README.md
-tailwind.config.ts
+tailwind.config.js
 tsconfig.json
 </directory_structure>
 
 <files>
 This section contains the contents of the repository's files.
 
-<file path="app/services/articles.ts">
-import db from '@/app/db';
-import { articles } from '@/app/db/schema';
-import { eq } from 'drizzle-orm';
-import type { NewArticle, Article } from '@/app/types';
+<file path="app/components/floating-card.tsx">
+'use client';
 
-/**
- * 記事を作成する
- */
-export const createArticle = async (data: NewArticle): Promise<Article> => {
-  try {
-    const [article] = await db
-      .insert(articles)
-      .values(data)
-      .returning();
-    
-    return article;
-  } catch (error) {
-    console.error('Error creating article:', error);
-    throw error;
-  }
-};
+import { motion } from 'framer-motion';
+import { ReactNode, useState } from 'react';
 
-/**
- * 記事一覧を取得する
- */
-export const getArticles = async (userId: string): Promise<Article[]> => {
-  try {
-    return await db
-      .select()
-      .from(articles)
-      .where(eq(articles.userId, userId))
-      .orderBy(articles.createdAt);
-  } catch (error) {
-    console.error('Error getting articles:', error);
-    throw error;
-  }
-};
+interface FloatingCardProps {
+  children: ReactNode;
+  delay?: number;
+}
 
-/**
- * 記事を取得する
- */
-export const getArticle = async (id: string): Promise<Article | null> => {
-  try {
-    const [article] = await db
-      .select()
-      .from(articles)
-      .where(eq(articles.id, id))
-      .limit(1);
-    
-    return article || null;
-  } catch (error) {
-    console.error('Error getting article:', error);
-    throw error;
-  }
-};
+export const FloatingCard = ({ children, delay = 0 }: FloatingCardProps) => {
+  // ランダムな初期位置
+  const [randomOffset] = useState({
+    x: Math.random() * 20 - 10,
+    y: Math.random() * 20 - 10,
+  });
 
-/**
- * 記事を更新する
- */
-export const updateArticle = async (
-  id: string,
-  data: Partial<Omit<Article, 'id' | 'createdAt'>>
-): Promise<Article> => {
-  try {
-    const [article] = await db
-      .update(articles)
-      .set({
-        ...data,
-        updatedAt: new Date(),
-      })
-      .where(eq(articles.id, id))
-      .returning();
-    
-    return article;
-  } catch (error) {
-    console.error('Error updating article:', error);
-    throw error;
-  }
-};
+  const floatingAnimation = {
+    initial: { 
+      opacity: 0,
+      y: 20,
+    },
+    animate: {
+      opacity: 1,
+      y: [
+        randomOffset.y,
+        randomOffset.y - 15,
+        randomOffset.y + 15,
+        randomOffset.y
+      ],
+      x: [
+        randomOffset.x,
+        randomOffset.x + 10,
+        randomOffset.x - 10,
+        randomOffset.x
+      ],
+      rotate: [0, 2, -2, 0],
+      transition: {
+        delay,
+        duration: 12,
+        repeat: Infinity,
+        ease: "linear"
+      }
+    }
+  };
 
-/**
- * 記事を削除する
- */
-export const deleteArticle = async (id: string): Promise<void> => {
-  try {
-    await db
-      .delete(articles)
-      .where(eq(articles.id, id));
-  } catch (error) {
-    console.error('Error deleting article:', error);
-    throw error;
-  }
+  return (
+    <motion.div
+      className="floating-card"
+      variants={floatingAnimation}
+      initial="initial"
+      animate="animate"
+      whileHover={{
+        scale: 1.05,
+        transition: { duration: 0.2 }
+      }}
+    >
+      {children}
+    </motion.div>
+  );
 };
 </file>
 
-<file path="app/services/transcripts.ts">
-import db from '@/app/db';
-import { transcripts } from '@/app/db/schema';
-import { eq, and } from 'drizzle-orm';
-import type { Transcript } from '@/app/types';
+<file path="app/components/floating-cards-container.tsx">
+'use client';
 
-/**
- * 字幕データを作成する
- */
-export const createTranscript = async (data: Omit<Transcript, 'id' | 'createdAt'>): Promise<Transcript> => {
-  try {
-    const [transcript] = await db
-      .insert(transcripts)
-      .values(data)
-      .returning();
-    
-    return transcript;
-  } catch (error) {
-    console.error('Error creating transcript:', error);
-    throw error;
-  }
+import { useInView } from 'react-intersection-observer';
+import { FloatingCard } from './floating-card';
+import Image from 'next/image';
+import Link from 'next/link';
+import { YouTubeService } from '@/app/(server)/services/youtube';
+import type { Article } from '@/lib/types';
+
+interface FloatingCardsContainerProps {
+  articles: Article[];
+}
+
+// カードの配置を計算する関数
+const calculateCardPosition = (index: number, total: number) => {
+  const radius = 300; // 配置半径
+  const angle = (index / total) * Math.PI * 2;
+  const x = Math.cos(angle) * radius;
+  const y = Math.sin(angle) * radius;
+
+  // スタイルオブジェクトを返す
+  return {
+    position: 'absolute' as const,
+    left: `calc(50% + ${x}px)`,
+    top: `calc(50% + ${y}px)`,
+    transform: 'translate(-50%, -50%)',
+  };
 };
 
+export const FloatingCardsContainer = ({ articles }: FloatingCardsContainerProps) => {
+  const [ref, inView] = useInView({
+    triggerOnce: true,
+    threshold: 0.1,
+  });
+
+  return (
+    <div 
+      ref={ref}
+      className="relative min-h-[600px] w-full overflow-hidden"
+    >
+      {articles.map((article, index) => (
+        <div
+          key={article.id}
+          style={calculateCardPosition(index, articles.length)}
+        >
+          <FloatingCard delay={index * 0.2}>
+            <Link 
+              href={`/articles/${article.id}`} 
+              className="block w-[300px] overflow-hidden backdrop-blur-md bg-gradient-to-b from-orange-50/80 to-orange-100/10 border border-orange-200/20 rounded-xl shadow-lg transition-opacity hover:opacity-90"
+            >
+              <div className="relative aspect-video">
+                <Image
+                  src={YouTubeService.getThumbnailUrl(article.videoId)}
+                  alt={article.title}
+                  fill
+                  className="object-cover"
+                  sizes="300px"
+                  priority={false}
+                />
+              </div>
+              <div className="p-4">
+                <h3 className="text-xl font-semibold mb-2 text-gray-800 line-clamp-2">
+                  {article.title}
+                </h3>
+              </div>
+            </Link>
+          </FloatingCard>
+        </div>
+      ))}
+    </div>
+  );
+};
+</file>
+
+<file path="app/(pages)/(auth)/sign-up/[[...sign-up]]/page.tsx">
+import { SignUp } from '@clerk/nextjs'
+
+export default function Page() {
+  return (
+    <div className="flex justify-center items-center h-screen">
+      <SignUp />
+    </div>
+  )
+}
+</file>
+
+<file path="app/(pages)/articles/components/article-card.tsx">
+import Image from "next/image";
+import { YouTubeService } from "@/app/(server)/services/youtube";
+import type { Article } from "@/lib/types";
+
+interface ArticleCardProps {
+  article: Article;
+}
+
 /**
- * 字幕データを取得する
+ * 記事カードコンポーネント
+ * 記事のサムネイルとタイトルを表示
  */
-export const getTranscript = async (videoId: string, userId: string): Promise<Transcript | null> => {
-  try {
-    const [transcript] = await db
-      .select()
-      .from(transcripts)
-      .where(
-        and(
-          eq(transcripts.videoId, videoId),
-          eq(transcripts.userId, userId)
-        )
+export function ArticleCard({ article }: ArticleCardProps) {
+  const thumbnailUrl = YouTubeService.getThumbnailUrl(article.videoId);
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow">
+      <div className="relative aspect-video">
+        <Image
+          src={thumbnailUrl}
+          alt={article.title}
+          fill
+          className="object-cover"
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          priority={false}
+        />
+      </div>
+      <div className="p-4">
+        <h3 className="text-lg font-semibold line-clamp-2">
+          {article.title}
+        </h3>
+        <p className="mt-2 text-sm text-gray-600">
+          {new Date(article.createdAt ?? new Date()).toLocaleDateString("ja-JP")}
+        </p>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="app/(server)/services/youtube.ts">
+/**
+ * YouTubeサービス
+ * YouTube関連の機能を提供するサービスクラス
+ */
+export class YouTubeService {
+  /**
+   * 動画IDからサムネイルURLを生成
+   * @param videoId - YouTubeの動画ID
+   * @returns サムネイルのURL（HQ品質）
+   */
+  static getThumbnailUrl(videoId: string): string {
+    return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+  }
+}
+</file>
+
+<file path="app/components/auth-button.tsx">
+'use client'
+
+import { UserButton, SignInButton, useAuth } from '@clerk/nextjs'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+
+export function AuthButton() {
+  return (
+    <div>
+      <UserButton />
+    </div>
+  )
+}
+
+export function SignInButtonComponent() {  // asyncを削除
+  const { userId } = useAuth()  // awaitを削除
+  const pathname = usePathname()
+  const showSignInButton = !userId && pathname !== '/sign-up'
+
+    return (
+      showSignInButton && (
+        <Link href="/sign-up">
+          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            ログイン
+          </button>
+        </Link>
       )
-      .limit(1);
-    
-    return transcript || null;
-  } catch (error) {
-    console.error('Error getting transcript:', error);
-    throw error;
+    )
   }
-};
-
-/**
- * ユーザーの全字幕データを取得する
- */
-export const getTranscripts = async (userId: string): Promise<Transcript[]> => {
-  try {
-    return await db
-      .select()
-      .from(transcripts)
-      .where(eq(transcripts.userId, userId))
-      .orderBy(transcripts.createdAt);
-  } catch (error) {
-    console.error('Error getting transcripts:', error);
-    throw error;
-  }
-};
-
-/**
- * 字幕データを削除する
- */
-export const deleteTranscript = async (id: string): Promise<void> => {
-  try {
-    await db
-      .delete(transcripts)
-      .where(eq(transcripts.id, id));
-  } catch (error) {
-    console.error('Error deleting transcript:', error);
-    throw error;
-  }
-};
-</file>
-
-<file path=".repomixignore">
-.history
-drizzle/meta
-</file>
-
-<file path="app/api/articles/[id]/route.ts">
-import { NextResponse } from 'next/server';
-import { ApiResponse } from '@/app/types';
-import db from '@/app/db';
-import { articles } from '@/app/db/schema';
-import { auth } from '@clerk/nextjs/server';
-import { eq, and } from 'drizzle-orm';
-
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: '認証が必要です'
-      }
-    }, { status: 401 });
-  }
-
-  try {
-    const article = await db
-      .select()
-      .from(articles)
-      .where(and(
-        eq(articles.id, params.id),
-        eq(articles.userId, userId)
-      ))
-      .limit(1);
-
-    if (article.length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'NOT_FOUND',
-          message: '記事が見つかりません'
-        }
-      }, { status: 404 });
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: article[0]
-    });
-  } catch (error: any) {
-    console.error('[Article Error]:', error);
-
-    return NextResponse.json({
-      success: false,
-      error: {
-        code: 'INTERNAL_ERROR',
-        message: error.message || '記事の取得に失敗しました'
-      }
-    }, { status: 500 });
-  }
-}
-
-export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: '認証が必要です'
-      }
-    }, { status: 401 });
-  }
-
-  try {
-    const { title, content, language } = await request.json();
-
-    // バリデーション
-    if (!title && !content && !language) {
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'INVALID_INPUT',
-          message: '更新するフィールドが指定されていません'
-        }
-      }, { status: 400 });
-    }
-
-    // 記事の存在確認
-    const exists = await db
-      .select({ id: articles.id })
-      .from(articles)
-      .where(and(
-        eq(articles.id, params.id),
-        eq(articles.userId, userId)
-      ))
-      .limit(1);
-
-    if (exists.length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'NOT_FOUND',
-          message: '記事が見つかりません'
-        }
-      }, { status: 404 });
-    }
-
-    // 更新するフィールドを準備
-    const updateData: {
-      title?: string;
-      content?: string;
-      language?: string;
-    } = {};
-
-    if (title) updateData.title = title;
-    if (content) updateData.content = content;
-    if (language) updateData.language = language;
-
-    // 記事を更新
-    const updated = await db
-      .update(articles)
-      .set(updateData)
-      .where(and(
-        eq(articles.id, params.id),
-        eq(articles.userId, userId)
-      ))
-      .returning();
-
-    return NextResponse.json({
-      success: true,
-      data: updated[0]
-    });
-  } catch (error: any) {
-    console.error('[Article Error]:', error);
-
-    return NextResponse.json({
-      success: false,
-      error: {
-        code: 'INTERNAL_ERROR',
-        message: error.message || '記事の更新に失敗しました'
-      }
-    }, { status: 500 });
-  }
-}
-
-export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: '認証が必要です'
-      }
-    }, { status: 401 });
-  }
-
-  try {
-    const deleted = await db
-      .delete(articles)
-      .where(and(
-        eq(articles.id, params.id),
-        eq(articles.userId, userId)
-      ))
-      .returning();
-
-    if (deleted.length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'NOT_FOUND',
-          message: '記事が見つかりません'
-        }
-      }, { status: 404 });
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: deleted[0]
-    });
-  } catch (error: any) {
-    console.error('[Article Error]:', error);
-
-    return NextResponse.json({
-      success: false,
-      error: {
-        code: 'INTERNAL_ERROR',
-        message: error.message || '記事の削除に失敗しました'
-      }
-    }, { status: 500 });
-  }
-}
-</file>
-
-<file path="app/api/articles/route.ts">
-import { NextResponse } from 'next/server';
-import { ApiResponse, Article } from '@/app/types';
-import db from '@/app/db';
-import { articles } from '@/app/db/schema';
-import { auth } from '@clerk/nextjs/server';
-import { eq } from 'drizzle-orm';
-
-export async function POST(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: '認証が必要です'
-      }
-    }, { status: 401 });
-  }
-
-  try {
-    const { videoId, title, content, language } = await request.json();
-
-    // バリデーション
-    if (!videoId || !title || !content || !language) {
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'INVALID_INPUT',
-          message: '必要なパラメータが不足しています'
-        }
-      }, { status: 400 });
-    }
-
-    // 記事を保存
-    const article = await db.insert(articles).values({
-      userId,
-      videoId,
-      title,
-      content,
-      language
-    }).returning();
-
-    return NextResponse.json({
-      success: true,
-      data: article[0]
-    });
-  } catch (error: any) {
-    console.error('[Article Error]:', error);
-
-    return NextResponse.json({
-      success: false,
-      error: {
-        code: 'INTERNAL_ERROR',
-        message: error.message || '記事の保存に失敗しました'
-      }
-    }, { status: 500 });
-  }
-}
-
-export async function GET(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: '認証が必要です'
-      }
-    }, { status: 401 });
-  }
-
-  try {
-    // ユーザーの記事一覧を取得
-    const userArticles = await db
-      .select()
-      .from(articles)
-      .where(eq(articles.userId, userId));
-
-    return NextResponse.json({
-      success: true,
-      data: userArticles
-    });
-  } catch (error: any) {
-    console.error('[Article Error]:', error);
-
-    return NextResponse.json({
-      success: false,
-      error: {
-        code: 'INTERNAL_ERROR',
-        message: error.message || '記事の取得に失敗しました'
-      }
-    }, { status: 500 });
-  }
-}
 </file>
 
 <file path="app/components/error-message.tsx">
@@ -587,241 +366,6 @@ export function ErrorMessage({ message }: { message: string }) {
 }
 </file>
 
-<file path="app/components/header.tsx">
-'use client'
-
-import { UserButton, SignInButton, useUser } from '@clerk/nextjs'
-
-export function Header() {
-  const { isSignedIn } = useUser()
-
-  return (
-    <header className="bg-white shadow-sm">
-      <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-        <div className="text-xl font-semibold text-gray-800">
-          YouTube Blog AI
-        </div>
-        <div>
-          {isSignedIn ? (
-            <UserButton afterSignOutUrl="/" />
-          ) : (
-            <SignInButton mode="modal">
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                ログイン
-              </button>
-            </SignInButton>
-          )}
-        </div>
-      </div>
-    </header>
-  )
-}
-</file>
-
-<file path="app/components/url-input.tsx">
-'use client'
-
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { extractVideoId, validateVideoId } from '../utils/api'
-import { ErrorMessage } from './error-message'
-
-type FormData = {
-  url: string
-}
-
-export function URLInput() {
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>()
-
-  const onSubmit = async (data: FormData) => {
-    setIsLoading(true)
-    setError(null)
-    try {
-      const videoId = extractVideoId(data.url)
-      
-      if (!validateVideoId(videoId)) {
-        throw new Error('無効なYouTube URLです')
-      }
-
-      // 字幕を取得
-      const response = await fetch('/api/transcript', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url: data.url }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || '字幕の取得に失敗しました');
-      }
-
-      const result = await response.json();
-      console.log('Transcript:', result);
-      
-    } catch (error) {
-      console.error('Error:', error)
-      setError(error instanceof Error ? error.message : '予期せぬエラーが発生しました')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="space-y-4">
-        <div className="relative">
-          <input
-            {...register('url', {
-              required: 'URLを入力してください',
-              pattern: {
-                value: /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[a-zA-Z0-9_-]+/,
-                message: '有効なYouTube URLを入力してください'
-              }
-            })}
-            type="url"
-            placeholder="https://www.youtube.com/watch?v=..."
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="absolute right-2 top-2 px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-          >
-            {isLoading ? '処理中...' : '生成'}
-          </button>
-        </div>
-        {(errors.url || error) && (
-          <ErrorMessage message={errors.url?.message || error || ''} />
-        )}
-      </div>
-    </form>
-  )
-}
-</file>
-
-<file path="app/types/index.ts">
-import { InferModel } from 'drizzle-orm';
-import { articles, transcripts, users } from '../db/schema';
-
-export type User = InferModel<typeof users>;
-export type Article = InferModel<typeof articles>;
-export type NewArticle = Omit<Article, 'id' | 'createdAt' | 'updatedAt'>;
-export type Transcript = InferModel<typeof transcripts>;
-
-export interface YouTubeTranscriptSegment {
-  text: string;
-  start: number;
-  duration: number;
-}
-
-export type TranscriptResponse = {
-  videoId: string;
-  transcript: YouTubeTranscriptSegment[];
-};
-
-export type ApiResponse<T> = {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-  };
-};
-</file>
-
-<file path="app/utils/api.ts">
-import { ApiResponse } from '../types';
-
-export function handleApiError(error: unknown): ApiResponse<never> {
-  console.error('[API Error]:', error);
-  
-  if (error instanceof Error) {
-    return {
-      success: false,
-      error: {
-        code: 'UNKNOWN_ERROR',
-        message: error.message
-      }
-    };
-  }
-
-  return {
-    success: false,
-    error: {
-      code: 'UNKNOWN_ERROR',
-      message: '予期せぬエラーが発生しました'
-    }
-  };
-}
-
-export function createSuccessResponse<T>(data: T): ApiResponse<T> {
-  return {
-    success: true,
-    data
-  };
-}
-
-export function extractVideoId(url: string): string | null {
-  try {
-    const urlObj = new URL(url);
-    
-    // 通常のYouTube URL
-    if (urlObj.hostname.includes('youtube.com')) {
-      const searchParams = new URLSearchParams(urlObj.search);
-      return searchParams.get('v');
-    }
-    
-    // 短縮URL (youtu.be)
-    if (urlObj.hostname === 'youtu.be') {
-      return urlObj.pathname.slice(1);
-    }
-    
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-export function validateVideoId(videoId: string | null): boolean {
-  if (!videoId) return false;
-  // YouTubeのビデオIDは通常11文字
-  return /^[A-Za-z0-9_-]{11}$/.test(videoId);
-}
-</file>
-
-<file path="app/globals.css">
-@import "tailwindcss";
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
-</file>
-
 <file path="drizzle/0001_pale_gorilla_man.sql">
 ALTER TABLE "youtube_blog_ai"."articles" DROP CONSTRAINT "articles_userId_users_id_fk";
 --> statement-breakpoint
@@ -831,313 +375,50 @@ ALTER TABLE "youtube_blog_ai"."articles" ALTER COLUMN "userId" SET DATA TYPE tex
 ALTER TABLE "youtube_blog_ai"."transcripts" ALTER COLUMN "userId" SET DATA TYPE text;
 </file>
 
-<file path="memory-bank/activeContext.md">
-# アクティブコンテキスト
+<file path="drizzle/0002_secret_warbird.sql">
+-- 既存のデータを一時的に保存
+ALTER TABLE "youtube_blog_ai"."transcripts" ADD COLUMN "transcript_temp" jsonb;
+UPDATE "youtube_blog_ai"."transcripts" SET "transcript_temp" = "transcript"::jsonb WHERE "transcript" IS NOT NULL;
 
-## 現在のフェーズ
-- プロジェクト初期設定フェーズ
-- 基本設計ドキュメント作成完了
-- 実装準備段階
+-- 元のカラムを削除して新しいカラムを追加
+ALTER TABLE "youtube_blog_ai"."transcripts" DROP COLUMN "transcript";
+ALTER TABLE "youtube_blog_ai"."transcripts" ADD COLUMN "transcript" jsonb;
 
-## 最近の変更
-- プロジェクト仕様書の作成
-- Memory Bankの初期設定
-- システムアーキテクチャの設計
-
-## 進行中のタスク
-1. **プロジェクトセットアップ**
-   - リポジトリ構造の確認
-   - 必要なパッケージの特定
-   - 環境変数の設定計画
-
-2. **フロントエンド準備**
-   - Next.jsプロジェクトの初期構造確認
-   - 必要なコンポーネントの洗い出し
-   - UI/UXフローの詳細設計
-
-3. **バックエンド準備**
-   - APIルート設計
-   - 外部APIとの連携計画
-   - データベース設計
-
-## 優先度の高い実装項目
-1. **コア機能**
-   - [ ] YouTube URL入力フォーム
-   - [ ] 字幕取得機能
-   - [ ] AI記事生成機能
-
-2. **認証システム**
-   - [ ] Clerk設定
-   - [ ] 認証フロー実装
-   - [ ] 保護されたルートの設定
-
-3. **データ永続化**
-   - [x] Supabaseセットアップ
-   - [x] データベーススキーマ設計
-   - [ ] サービスレイヤーの実装
-   - [ ] Server Actionsの実装
-   - [ ] CRUD操作のテスト
-
-## 現在の課題
-1. **技術的課題**
-   - YouTube API制限の対応策検討
-   - 大規模テキスト処理の最適化
-   - キャッシング戦略の詳細化
-
-2. **設計上の課題**
-   - エラーハンドリングの詳細設計
-   - スケーラビリティの考慮
-   - セキュリティ対策の具体化
-
-## 次のステップ
-1. サービスレイヤーの実装
-   - app/services/articles.ts
-   - app/services/transcripts.ts
-2. Server Actionsの実装
-   - app/actions.ts
-3. APIルートのリファクタリング
-4. 統合テストの実装
-
-## アクティブな決定事項
-1. **アーキテクチャ**
-   - Next.js App Routerの採用
-   - サーバーレスアーキテクチャの採用
-   - マイクロサービス的アプローチの回避
-
-2. **技術選定**
-   - Clerk認証の採用
-   - Supabaseデータベースの採用
-   - TypeScriptの完全採用
-
-3. **実装方針**
-   - Server Componentsの積極的活用
-   - サービスレイヤーでのビジネスロジック分離
-   - Server Actionsの効率的な活用
-   - APIルートの効率的な設計
-   - エラーハンドリングの統一化
-
-## 留意点
-- セキュリティを最優先に考慮
-- パフォーマンスの継続的なモニタリング
-- ユーザビリティの重視
-- スケーラビリティの確保
+-- データを戻す
+UPDATE "youtube_blog_ai"."transcripts" SET "transcript" = "transcript_temp";
+ALTER TABLE "youtube_blog_ai"."transcripts" DROP COLUMN "transcript_temp";
 </file>
 
-<file path="memory-bank/productContext.md">
-# プロダクトコンテキスト
-
-## ユーザーペルソナ
-
-### プライマリーペルソナ
-1. **コンテンツクリエイター**
-   - YouTubeチャンネルを運営
-   - 動画コンテンツの文字起こしニーズが高い
-   - ブログでのマルチチャネル展開を望む
-
-2. **ブロガー/ライター**
-   - YouTube動画を記事のソースとして活用
-   - 効率的な記事作成プロセスを求める
-   - 品質の高い記事生成を重視
-
-### セカンダリーペルソナ
-1. **メディア運営者**
-   - 大量のコンテンツ生成ニーズ
-   - チーム内での共有・管理が必要
-   - 一貫した品質管理を重視
-
-## ユーザージャーニー
-```mermaid
-journey
-    title ユーザージャーニーマップ
-    section 記事生成
-        URL入力: 5: ユーザー
-        字幕取得: 3: システム
-        AI処理: 3: システム
-        記事確認: 4: ユーザー
-        保存/共有: 5: ユーザー
-```
-
-## ユーザー体験目標
-1. **シンプルさ**
-   - 最小限の入力で記事生成
-   - 直感的なUI/UX
-   - クリアな進行状況表示
-
-2. **スピード**
-   - 素早い字幕取得
-   - 効率的な記事生成
-   - レスポンシブな画面遷移
-
-3. **品質**
-   - 正確な字幕取得
-   - 構造化された記事フォーマット
-   - 自然な文章生成
-
-4. **信頼性**
-   - 安定したシステム動作
-   - エラー時の適切なフィードバック
-   - データの永続性保証
-
-## 機能優先順位
-### P0（必須機能）
-- YouTube URL入力
-- 字幕取得
-- 記事生成
-- 基本的なエラーハンドリング
-
-### P1（重要機能）
-- ユーザー認証
-- 記事保存
-- 進行状況表示
-- 基本的な記事フォーマット選択
-
-### P2（追加機能）
-- 複数言語対応
-- カスタムプロンプト
-- 記事プレビュー
-- 共有機能
-
-## 品質基準
-### コンテンツ品質
-1. **記事構造**
-   - 明確な見出し階層
-   - 適切な段落分割
-   - 一貫した文体
-
-2. **内容の正確性**
-   - 元動画の主要ポイントを網羅
-   - 文脈の適切な解釈
-   - 誤訳・誤変換の最小化
-
-### システム品質
-1. **パフォーマンス**
-   - 3秒以内のページロード
-   - 30秒以内の記事生成
-   - スムーズな画面遷移
-
-2. **信頼性**
-   - 99.9%のシステム稼働率
-   - データ永続化の保証
-   - セキュアなデータ管理
-
-## フィードバックループ
-1. **ユーザーフィードバック**
-   - 記事品質評価
-   - UI/UX改善提案
-   - 機能リクエスト
-
-2. **システムモニタリング**
-   - パフォーマンス指標
-   - エラー率
-   - ユーザー行動分析
-
-3. **継続的改善**
-   - AIモデルの調整
-   - UI/UXの最適化
-   - 新機能の追加
+<file path="drizzle/0003_great_domino.sql">
+ALTER TABLE "youtube_blog_ai"."articles" ADD COLUMN "transcriptId" uuid NOT NULL;--> statement-breakpoint
+ALTER TABLE "youtube_blog_ai"."articles" ADD CONSTRAINT "articles_transcriptId_transcripts_id_fk" FOREIGN KEY ("transcriptId") REFERENCES "youtube_blog_ai"."transcripts"("id") ON DELETE no action ON UPDATE no action;
 </file>
 
-<file path="memory-bank/progress.md">
-# プロジェクト進捗状況
+<file path="lib/types.ts">
+import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
+import { users, articles, transcripts } from '../app/db/schema';
 
-## 完了した作業
-1. **プロジェクト設計**
-   - ✅ プロジェクト仕様書の作成
-   - ✅ システムアーキテクチャの設計
-   - ✅ Memory Bankの初期設定
+// Users table types
+export type User = InferSelectModel<typeof users>;
+export type NewUser = InferInsertModel<typeof users>;
 
-## 進行中の作業
-1. **環境設定**
-   - [ ] Next.jsプロジェクトの確認
-   - [ ] 必要なパッケージのインストール
-   - [ ] 環境変数の設定
+// Articles table types
+export type Article = InferSelectModel<typeof articles>;
+export type NewArticle = InferInsertModel<typeof articles>;
 
-2. **認証システム**
-   - [ ] Clerkのセットアップ
-   - [ ] 認証フローの実装
-   - [ ] 保護されたルートの設定
+// Transcripts table types
+export type Transcript = InferSelectModel<typeof transcripts>;
+export type NewTranscript = InferInsertModel<typeof transcripts>;
 
-3. **データベース**
-   - [x] Supabaseプロジェクトの作成
-   - [x] データベーススキーマの設計（Drizzle）
-   - [x] マイグレーションの実行
-   - [ ] サービスレイヤーの実装
-     - [ ] app/services/articles.ts
-     - [ ] app/services/transcripts.ts
-   - [ ] Server Actionsの実装
-     - [ ] app/actions.ts
+// API Response types
 
-## 今後の作業
-1. **フロントエンド開発**
-   - [ ] コンポーネント設計
-   - [ ] ページレイアウト実装
-   - [ ] フォーム実装
-   - [ ] エラーハンドリングUI
-
-2. **バックエンド開発**
-   - [ ] サービスレイヤーの実装
-   - [ ] Server Actionsの実装
-   - [ ] APIルートの最適化
-   - [ ] 字幕取得機能
-   - [ ] AI記事生成機能
-
-3. **テスト実装**
-   - [ ] ユニットテスト
-   - [ ] 統合テスト
-   - [ ] E2Eテスト
-
-## 既知の課題
-1. **技術的課題**
-   - YouTube APIの利用制限への対応
-   - 大規模テキスト処理の最適化
-   - APIレート制限の管理
-
-2. **機能的課題**
-   - 多言語対応の実装方針
-   - 記事フォーマットの標準化
-   - キャッシング戦略
-
-## リスク管理
-1. **識別されたリスク**
-   - API制限による処理の中断
-   - 大規模テキストによるパフォーマンス低下
-   - データ整合性の確保
-
-2. **対策案**
-   - バッチ処理の実装
-   - キャッシング層の導入
-   - エラー復旧メカニズムの実装
-
-## 次のマイルストーン
-1. **Phase 1: 基本機能**
-   - [ ] YouTube URL入力
-   - [ ] 字幕取得
-   - [ ] 基本的な記事生成
-
-2. **Phase 2: ユーザー管理**
-   - [ ] 認証システム
-   - [ ] ユーザープロフィール
-   - [ ] 記事管理機能
-
-3. **Phase 3: 拡張機能**
-   - [ ] カスタムプロンプト
-   - [ ] 記事フォーマット選択
-   - [ ] 共有機能
-
-## 品質指標
-1. **パフォーマンス**
-   - [ ] ページロード時間の測定
-   - [ ] API応答時間の監視
-   - [ ] リソース使用率の追跡
-
-2. **ユーザビリティ**
-   - [ ] エラー率の測定
-   - [ ] ユーザーフィードバックの収集
-   - [ ] 操作完了率の追跡
-
-## 更新履歴
-- 2025/03/19: プロジェクト仕様書作成、Memory Bank初期設定
-- 2025/03/20: データベーススキーマ設計完了、マイグレーション実行
+ // Start of Selection
+export type YouTubeTranscriptSegment = {
+  text: string; // テキスト
+  start: number; // 開始時間
+  duration: number; // 持続時間
+  language: string; // 言語
+};
 </file>
 
 <file path="memory-bank/projectbrief.md">
@@ -1245,22 +526,18 @@ yarn-error.log*
 next-env.d.ts
 </file>
 
-<file path="next.config.ts">
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  /* config options here */
-};
-
-export default nextConfig;
+<file path=".repomixignore">
+.history
+drizzle/meta
 </file>
 
-<file path="postcss.config.mjs">
-const config = {
-  plugins: ["@tailwindcss/postcss"],
-};
-
-export default config;
+<file path="postcss.config.js">
+module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}
 </file>
 
 <file path="README.md">
@@ -1302,10 +579,9 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 </file>
 
-<file path="tailwind.config.ts">
-import type { Config } from 'tailwindcss'
-
-const config: Config = {
+<file path="tailwind.config.js">
+/** @type {import('tailwindcss').Config} */
+module.exports = {
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -1316,17 +592,13 @@ const config: Config = {
       fontFamily: {
         sans: ['Inter var', 'sans-serif'],
       },
-      colors: {
-        // カスタムカラーがあれば追加
-      },
     },
   },
-  plugins: [
-    require('@tailwindcss/forms'),
-  ],
+  plugins: [require('@tailwindcss/forms'),
+    require('@tailwindcss/typography'),
+  ]
+  ,
 }
-
-export default config
 </file>
 
 <file path="tsconfig.json">
@@ -1359,91 +631,154 @@ export default config
 }
 </file>
 
-<file path="app/api/transcript/route.ts">
-import { YoutubeTranscript } from 'youtube-transcript';
-import { extractVideoId, validateVideoId } from '@/app/utils/api';
-import { NextResponse } from 'next/server';
-import { ApiResponse, TranscriptResponse, YouTubeTranscriptSegment } from '@/app/types';
-import db from '@/app/db';
-import { transcripts } from '@/app/db/schema';
+<file path="app/(pages)/articles/[id]/page.tsx">
 import { auth } from '@clerk/nextjs/server';
+import { getArticle } from '@/app/(server)/(services)/articles';
+import { notFound } from 'next/navigation';
+import { Metadata } from 'next';
+import Image from 'next/image';
+import { YouTubeService } from '@/app/(server)/services/youtube';
+// 動的メタデータの生成
+export async function generateMetadata({ 
+  params 
+}: { 
+  params: { id: string } 
+}): Promise<Metadata> {
+  const resolvedParams = await params;
+  const article = await getArticle(resolvedParams.id);
+  
+  if (!article) {
+    return {
+      title: '記事が見つかりません',
+    };
+  }
 
-type RawTranscriptSegment = {
-  text: string;
-  start: number;
-  duration: number;
-};
+  return {
+    title: article.title,
+    description: `${article.title}の記事ページです。`,
+  };
+}
 
-export async function POST(request: Request) {
+export default async function ArticlePage({
+  params
+}: {
+  params: { id: string }
+}) {
+  const resolvedParams = await params;
+  const article = await getArticle(resolvedParams.id);
+  
+  if (!article) {
+    notFound();
+  }
+
+  return (
+    <article className="container mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto">
+        <header className="mb-8">
+          {/* サムネイル */}
+          <div className="relative aspect-video mb-6 rounded-lg overflow-hidden">
+            <Image
+              src={YouTubeService.getThumbnailUrl(article.videoId)}
+              alt={article.title}
+              fill
+              className="object-cover"
+              priority
+            />
+          </div>
+
+          {/* タイトル */}
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl mb-4">
+            {article.title}
+          </h1>
+          
+          {/* メタ情報 */}
+          <div className="flex items-center text-sm text-gray-600">
+            <time dateTime={article.createdAt?.toISOString()}>
+              {article.createdAt 
+                ? new Date(article.createdAt).toLocaleDateString('ja-JP', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })
+                : '不明'
+              }
+            </time>
+          </div>
+        </header>
+
+        本文
+        <div 
+          className="prose article-content"
+          dangerouslySetInnerHTML={{ __html: article.content }}
+        />
+      </div>
+    </article>
+  );
+}
+</file>
+
+<file path="app/(pages)/articles/page.tsx">
+import { auth } from '@clerk/nextjs/server';
+import { getArticles } from '@/app/(server)/(services)/articles';
+import Link from 'next/link';
+import { ArticleCard } from './components/article-card';
+
+export default async function ArticlesPage() {
   const { userId } = await auth();
   if (!userId) {
-    return NextResponse.json({
-      success: false,
-      error: {
-        code: 'UNAUTHORIZED',
-        message: '認証が必要です'
-      }
-    }, { status: 401 });
+    return <div>ログインが必要です</div>;
   }
 
-  try {
-    const data = await request.json();
-    const videoUrl = data.url;
+  const articles = await getArticles();
 
-    // URLからビデオIDを抽出
-    const videoId = extractVideoId(videoUrl);
-    if (!validateVideoId(videoId)) {
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'INVALID_URL',
-          message: '無効なYouTube URLです'
-        }
-      }, { status: 400 });
-    }
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-8">記事一覧</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {articles.map((article) => (
+          <Link
+            key={article.id}
+            href={`/articles/${article.id}`}
+            className="block hover:opacity-80 transition-opacity"
+          >
+            <ArticleCard article={article} />
+          </Link>
+        ))}
+        {articles.length === 0 && (
+          <div className="text-center text-gray-600">
+            記事がまだありません
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+</file>
 
-    // 字幕を取得
-    const rawTranscript = await YoutubeTranscript.fetchTranscript(videoId as string);
-    const transcriptData = rawTranscript as unknown as RawTranscriptSegment[];
-    
-    const transcript: YouTubeTranscriptSegment[] = transcriptData.map(
-      (segment: RawTranscriptSegment): YouTubeTranscriptSegment => ({
-        text: segment.text,
-        start: segment.start,
-        duration: segment.duration
-      })
-    );
+<file path="app/components/header.tsx">
+import { auth } from '@clerk/nextjs/server'
+import Link from 'next/link'
+import { AuthButton, SignInButtonComponent } from './auth-button'
 
-    // データベースに字幕を保存
-    const transcriptText = transcript.map(segment => segment.text).join('\n');
-    await db.insert(transcripts).values({
-      userId,
-      videoId: videoId as string,
-      transcript: transcriptText,
-      language: 'ja', // 現在は日本語のみサポート
-    });
+export async function Header() {
+  const { userId } = await auth()
 
-    const response: TranscriptResponse = {
-      videoId: videoId as string,
-      transcript
-    };
-
-    return NextResponse.json({
-      success: true,
-      data: response
-    });
-  } catch (error: any) {
-    console.error('[Transcript Error]:', error);
-
-    // エラーレスポンス
-    return NextResponse.json({
-      success: false,
-      error: {
-        code: 'INTERNAL_ERROR',
-        message: error.message || '字幕の取得に失敗しました'
-      }
-    }, { status: 500 });
-  }
+  return (
+    <header className="bg-white shadow-sm">
+      <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+        <Link href="/" className="text-xl font-semibold text-gray-800 hover:text-gray-600 transition-colors">
+          YouTube Blog AI
+        </Link>
+        <div>
+          {userId ? (
+            <AuthButton />
+          ) : (
+            <SignInButtonComponent />
+          )}
+        </div>
+      </div>
+    </header>
+  )
 }
 </file>
 
@@ -1457,6 +792,106 @@ const client = postgres(connectionString, { prepare: false })
 const db = drizzle(client);
 
 export default db;
+</file>
+
+<file path="app/globals.css">
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 255, 243, 224;
+  --background-end-rgb: 255, 255, 255;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+    to bottom,
+    rgb(var(--background-start-rgb)),
+    rgb(var(--background-end-rgb))
+  );
+  min-height: 100vh;
+}
+
+/* フローティングカードのカスタムスタイル */
+.floating-card {
+  position: relative;
+  will-change: transform;
+  transform-style: preserve-3d;
+  perspective: 1000px;
+}
+
+/* ガラスモーフィズム効果 */
+.glassmorphism {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* グラデーションアニメーション */
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.gradient-animate {
+  background: linear-gradient(
+    -45deg,
+    rgba(255,243,224,0.8),
+    rgba(255,183,77,0.2),
+    rgba(255,243,224,0.8)
+  );
+  background-size: 200% 200%;
+  animation: gradient 15s ease infinite;
+}
+
+/* カスタムシャドウ効果 */
+.shadow-float {
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(255, 183, 77, 0.1);
+}
+
+/* ホバーエフェクト */
+.hover-float {
+  transition: all 0.3s ease;
+}
+
+.hover-float:hover {
+  transform: translateY(-5px);
+  box-shadow: 
+    0 10px 20px -5px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05),
+    0 0 0 1px rgba(255, 183, 77, 0.2);
+}
+
+/* アニメーション最適化 */
+* {
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Reduce motion if preferred */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 </file>
 
 <file path="app/layout.tsx">
@@ -1532,197 +967,131 @@ ALTER TABLE "youtube_blog_ai"."articles" ADD CONSTRAINT "articles_userId_users_i
 ALTER TABLE "youtube_blog_ai"."transcripts" ADD CONSTRAINT "transcripts_userId_users_id_fk" FOREIGN KEY ("userId") REFERENCES "youtube_blog_ai"."users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 </file>
 
-<file path="memory-bank/systemPatterns.md">
-# システムパターン設計
+<file path="memory-bank/productContext.md">
+# プロダクトコンテキスト
 
-## アーキテクチャ概要
+## ユーザーペルソナ
+
+### プライマリーペルソナ
+1. **コンテンツクリエイター**
+   - YouTubeチャンネルを運営
+   - 動画コンテンツの文字起こしニーズが高い
+   - ブログでのマルチチャネル展開を望む
+
+2. **ブロガー/ライター**
+   - YouTube動画を記事のソースとして活用
+   - 効率的な記事作成プロセスを求める
+   - 品質の高い記事生成を重視
+
+### セカンダリーペルソナ
+1. **メディア運営者**
+   - 大量のコンテンツ生成ニーズ
+   - チーム内での共有・管理が必要
+   - 一貫した品質管理を重視
+
+## ユーザージャーニー
 ```mermaid
-graph TD
-    Client[クライアント層] --> |1. YouTube URL送信| API[API層]
-    API --> |2. 字幕取得| YT[YouTube API]
-    API --> |3. テキスト生成| OpenAI[OpenAI API]
-    API --> |4. データ永続化| DB[Supabase]
-    Client --> |5. 認証| Auth[Clerk認証]
+journey
+    title ユーザージャーニーマップ
+    section 記事生成
+        URL入力: 5: ユーザー
+        字幕取得: 3: システム
+        AI処理: 3: システム
+        記事確認: 4: ユーザー
+        保存/共有: 5: ユーザー
 ```
 
-## システムレイヤー
-### 1. プレゼンテーション層
-- Next.jsによるServer ComponentsとClient Componentsの適切な使い分け
-- レスポンシブデザインによるマルチデバイス対応
-- プログレッシブエンハンスメントの採用
+## ユーザー体験目標
+1. **シンプルさ**
+   - 最小限の入力で記事生成
+   - 直感的なUI/UX
+   - クリアな進行状況表示
 
-### 2. アプリケーション層
-- サービスレイヤーによるビジネスロジックの分離（app/services）
-- Server Actionsによるサーバーサイド処理の最適化
-- APIルートによるRESTful APIの提供
-- リクエスト・レスポンスの標準化
-- エラーハンドリングの一元管理
+2. **スピード**
+   - 素早い字幕取得
+   - 効率的な記事生成
+   - レスポンシブな画面遷移
 
-### 3. ドメイン層
-- 字幕処理ドメイン
-  - 字幕取得
-  - テキスト前処理
-  - 言語判定
-- 記事生成ドメイン
-  - プロンプト管理
-  - 記事構造化
-  - 品質チェック
+3. **品質**
+   - 正確な字幕取得
+   - 構造化された記事フォーマット
+   - 自然な文章生成
 
-### 4. インフラストラクチャ層
-- Vercelでのサーバーレスデプロイ
-- Supabase + Drizzle ORMでのデータ永続化
-- Clerkによる認証基盤
+4. **信頼性**
+   - 安定したシステム動作
+   - エラー時の適切なフィードバック
+   - データの永続性保証
 
-## データフロー
-```mermaid
-sequenceDiagram
-    participant User as ユーザー
-    participant Frontend as フロントエンド
-    participant API as APIルート
-    participant YT as YouTube API
-    participant AI as OpenAI API
-    participant DB as Supabase
+## 機能優先順位
+### P0（必須機能）
+- YouTube URL入力
+- 字幕取得
+- 記事生成
+- 基本的なエラーハンドリング
 
-    User->>Frontend: URL入力
-    Frontend->>API: リクエスト送信
-    API->>YT: 字幕取得
-    YT-->>API: 字幕データ
-    API->>AI: 記事生成リクエスト
-    AI-->>API: 生成記事
-    API->>DB: 記事保存
-    API-->>Frontend: レスポンス
-    Frontend-->>User: 記事表示
-```
+### P1（重要機能）
+- ユーザー認証
+- 記事保存
+- 進行状況表示
+- 基本的な記事フォーマット選択
 
-## デザインパターン
-### 1. Repository Pattern
-- サービスレイヤーでのデータアクセス抽象化
-  - articles.ts: 記事関連の操作
-  - transcripts.ts: 字幕関連の操作
-- Drizzle ORMによるタイプセーフなクエリ構築
-- Supabaseリソースへの統一的なアクセス
+### P2（追加機能）
+- 複数言語対応
+- カスタムプロンプト
+- 記事プレビュー
+- 共有機能
 
-### 2. Service Layer Pattern
-- ビジネスロジックの分離
-- データベース操作の一元管理
-- Server ActionsとAPIルートでの再利用
+## 品質基準
+### コンテンツ品質
+1. **記事構造**
+   - 明確な見出し階層
+   - 適切な段落分割
+   - 一貫した文体
 
-### 3. Server Actions Pattern
-- フォーム処理の最適化
-- クライアントサイドキャッシュの活用
-- 楽観的更新の実装
+2. **内容の正確性**
+   - 元動画の主要ポイントを網羅
+   - 文脈の適切な解釈
+   - 誤訳・誤変換の最小化
 
-### 2. Factory Pattern
-- 記事生成プロセスの抽象化
-- プロンプトテンプレートの管理
+### システム品質
+1. **パフォーマンス最適化**
+   - Server Componentsによる高速な初期表示
+     - 3秒以内のページロード
+     - ストリーミングレンダリングの活用
+   - Server Actionsによる効率的なデータ処理
+     - 30秒以内の記事生成
+     - 最適化されたデータフェッチ
+   - 最小限のクライアントサイドJS
+     - 必要な場合のみClient Components使用
+     - バンドルサイズの最適化
 
-### 3. Strategy Pattern
-- 複数言語対応の字幕処理
-- 異なる記事フォーマットの生成
+2. **システム信頼性**
+   - サーバーサイドロジックの集中管理
+     - サービスレイヤーでの一元的なエラーハンドリング
+     - ビジネスロジックの一貫性確保
+   - 堅牢なデータ処理
+     - Drizzle ORMの型安全性活用
+     - トランザクション管理の確実性
+   - セキュアな実装
+     - Server Componentsでの安全なデータフェッチ
+     - Server Actionsでの入力検証
 
-### 4. Observer Pattern
-- 処理状態の監視
-- プログレス表示の実装
+## フィードバックと改善
+1. **ユーザー体験モニタリング**
+   - Server Componentsのパフォーマンス計測
+   - Server Actionsの応答時間追跡
+   - ページ遷移の体験評価
 
-## エラーハンドリング戦略
-1. **入力バリデーション**
-   - URL形式チェック
-   - 言語サポートチェック
+2. **システムモニタリング**
+   - コンポーネントレベルのパフォーマンス
+   - サービスレイヤーのエラー率
+   - データフェッチの効率性
 
-2. **プロセスエラー**
-   - 字幕取得失敗
-   - AI生成エラー
-   - DB操作エラー
-
-3. **リカバリー手順**
-   - 自動リトライ
-   - グレースフルデグラデーション
-   - ユーザーへのフィードバック
-
-## キャッシング戦略
-1. **アプリケーションキャッシュ**
-   - 生成済み記事のキャッシュ
-   - 字幕データのキャッシュ
-
-2. **APIキャッシュ**
-   - YouTube API応答のキャッシュ
-   - OpenAI API応答のキャッシュ
-</file>
-
-<file path="memory-bank/techContext.md">
-# 技術コンテキスト
-
-## 技術スタック
-### フロントエンド
-- **Next.js** - Reactフレームワーク
-  - App Router
-  - Server Components
-  - Client Components
-  - API Routes
-
-### バックエンド
-- **Next.js API Routes** - サーバーレス関数
-- **Node.js** - ランタイム環境
-
-### データベース
-- **Supabase** (PostgreSQL)
-  - データベースホスティング
-  - ユーザー管理
-  - ストレージ
-- **Drizzle ORM**
-  - スキーマ定義
-  - マイグレーション管理
-  - タイプセーフなクエリビルダー
-
-### 認証
-- **Clerk**
-  - ユーザー認証
-  - セッション管理
-  - 権限制御
-
-### 外部API・ライブラリ
-- **youtube-transcript** - 字幕取得ライブラリ
-- **OpenAI API (GPT-4)** - AI文章生成
-
-### デプロイ
-- **Vercel** - サーバーレスプラットフォーム
-
-## 開発要件
-### 環境設定
-- Node.js >= 18.x
-- TypeScript
-- ESLint
-- Prettier
-
-### 必要な環境変数
-- `OPENAI_API_KEY` - OpenAI APIキー
-- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` - Clerk公開キー
-- `CLERK_SECRET_KEY` - Clerkシークレットキー
-- `NEXT_PUBLIC_SUPABASE_URL` - SupabaseプロジェクトURL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase匿名キー
-- `SUPABASE_SERVICE_ROLE_KEY` - Supabaseサービスロールキー
-
-## 技術的制約
-1. **パフォーマンス要件**
-   - ページロード時間 < 3秒
-   - API応答時間 < 5秒
-   - 字幕取得タイムアウト = 30秒
-
-2. **スケーラビリティ**
-   - Vercelのサーバーレス環境に最適化
-   - Supabaseの接続プール管理
-   - APIレート制限の実装
-
-3. **セキュリティ**
-   - HTTPS通信のみ
-   - CORSポリシーの適切な設定
-   - API認証の必須化
-   - 入力値の厳格なバリデーション
-
-4. **依存関係**
-   - 最新のセキュリティパッチの適用
-   - 依存パッケージの定期的な更新
-   - 脆弱性スキャンの実施
+3. **継続的改善プロセス**
+   - Server Componentsの最適化
+   - サービスレイヤーの改善
+   - 型安全性の向上
+   - アーキテクチャパターンの洗練化
 </file>
 
 <file path=".clinerules">
@@ -1890,13 +1259,328 @@ module.exports = {
 }
 </file>
 
+<file path="next.config.ts">
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+  images: {
+    remotePatterns: [
+      {
+        hostname: "img.youtube.com",
+      },
+    ],
+  },
+};
+
+export default nextConfig;
+</file>
+
+<file path="app/(server)/(services)/transcripts.ts">
+'server only'
+import db from '@/app/db';
+import { transcripts } from '@/app/db/schema';
+import { eq, and } from 'drizzle-orm';
+import type { NewTranscript, Transcript } from '@/lib/types';
+
+/**
+ * 字幕データを作成する
+ */
+export const createTranscript = async (data: NewTranscript): Promise<Transcript> => {
+  try {
+    const [transcript] = await db
+      .insert(transcripts)
+      .values(data)
+      .returning();
+    
+    return transcript;
+  } catch (error) {
+    console.error('Error creating transcript:', error);
+    throw error;
+  }
+};
+</file>
+
+<file path="app/page.tsx">
+import { FloatingCardsContainer } from './components/floating-cards-container';
+import { URLInput } from './components/url-input';
+import { getArticles } from './(server)/(services)/articles';
+
+// 記事データを取得
+async function getData() {
+  const articles = await getArticles();
+  return { articles };
+}
+
+export default async function Home() {
+  const { articles } = await getData();
+  return (
+    <main className="min-h-screen bg-gradient-to-b from-orange-50 to-white">
+      {/* ヘッダーセクション */}
+      <section className="py-16 px-4 text-center">
+        <h1 className="text-4xl font-bold text-gray-800 mb-4">
+          YouTube字幕ブログジェネレーター
+        </h1>
+        <p className="text-gray-600 max-w-2xl mx-auto mb-8">
+          YouTubeの動画から自動で魅力的なブログ記事を生成。AIの力で、コンテンツの可能性を広げましょう。
+        </p>
+        
+        {/* URL入力フォーム */}
+        <div className="max-w-xl mx-auto">
+          <URLInput />
+        </div>
+      </section>
+
+      {/* フローティングカードセクション */}
+      <section className="mt-16">
+        <FloatingCardsContainer articles={articles} />
+      </section>
+    </main>
+  );
+}
+</file>
+
+<file path="memory-bank/activeContext.md">
+# アクティブコンテキスト
+
+## 現在のフェーズ
+- アーキテクチャ再構築フェーズ
+- Server Components優先アプローチへの移行
+- サーバーサイドロジックの整理
+
+## 最近の変更
+- アーキテクチャの方針更新
+  - Server Components優先の採用
+  - サーバーサイドロジックの構造化
+  - APIルートの最小限化
+- ディレクトリ構造の整理
+  - (server)フォルダーの導入
+  - ルートごとのコンポーネント分離
+
+## 進行中のタスク
+1. **アーキテクチャ再構築**
+   - [ ] Server Componentsへの移行
+   - [ ] サーバーサイドロジックの整理
+   - [ ] コンポーネント構造の見直し
+
+2. **サーバーサイド実装**
+   - [ ] サービスレイヤーの実装
+     ```
+     app/(server)/services/
+     ├── articles.ts
+     ├── youtube.ts
+     └── openai.ts
+     ```
+   - [ ] Server Actionsの実装
+     ```
+     app/(server)/actions/
+     ├── articles.ts
+     └── generate.ts
+     ```
+
+3. **データアクセス最適化**
+   - [ ] Drizzle ORMの型活用
+   - [ ] クエリの効率化
+   - [ ] エラーハンドリングの実装
+
+## 優先度の高い実装項目
+1. **コアロジック**
+   - [ ] サービスレイヤーの基盤実装
+   - [ ] Server Actionsの基盤実装
+   - [ ] エラーハンドリング基盤の実装
+
+2. **UI実装**
+   - [ ] Server Components実装
+   - [ ] 必要最小限のClient Components特定
+   - [ ] フォーム処理のServer Actions化
+
+3. **データ層**
+   - [ ] Drizzleスキーマの最適化
+   - [ ] 型定義の活用
+   - [ ] マイグレーション管理
+
+## 現在の課題
+1. **技術的課題**
+   - Server Componentsでのデータフェッチ最適化
+   - Server Actionsのエラーハンドリング
+   - 型安全性の確保
+
+2. **構造的課題**
+   - ロジックの適切な分離
+   - コンポーネントの適切な配置
+   - 型定義の管理
+
+## 次のステップ
+1. サーバーサイドロジックの実装
+   ```
+   app/(server)/
+   ├── services/
+   │   ├── articles.ts
+   │   ├── youtube.ts
+   │   └── openai.ts
+   └── actions/
+       ├── articles.ts
+       └── generate.ts
+   ```
+2. コンポーネントの再構築
+   - ルートごとのコンポーネントフォルダー作成
+   - Server/Client分離の明確化
+3. 型システムの整備
+   - Drizzle生成の型の活用
+   - 共通型定義の整理
+
+## アクティブな決定事項
+1. **アーキテクチャ**
+   - Server Components優先
+   - サーバーサイドロジックの集中管理
+   - APIルートの最小限使用
+
+2. **実装方針**
+   - ロジックはサービスレイヤーに集中
+   - フォーム処理はServer Actions
+   - 型はDrizzle ORMから生成
+   - シンプルな実装を維持
+
+3. **コード構成**
+   - ルートごとのコンポーネント分離
+   - サーバーロジックの明確な構造化
+   - 最小限のClient Components
+
+## 留意点
+- Server Componentsでのデータフェッチを優先
+- Client Componentsは必要な場合のみ使用
+- サービスレイヤーでのロジック集中
+- 型安全性の確保
+</file>
+
+<file path="memory-bank/progress.md">
+# プロジェクト進捗状況
+
+## 完了した作業
+1. **プロジェクト設計**
+   - ✅ プロジェクト仕様書の作成
+   - ✅ システムアーキテクチャの設計
+   - ✅ Memory Bankの初期設定
+
+## 進行中の作業
+1. **環境設定**
+   - [ ] Next.jsプロジェクトの確認
+   - [ ] 必要なパッケージのインストール
+   - [ ] 環境変数の設定
+
+2. **認証システム**
+   - [ ] Clerkのセットアップ
+   - [ ] 認証フローの実装
+   - [ ] 保護されたルートの設定
+
+3. **データベース**
+   - [x] Supabaseプロジェクトの作成
+   - [x] データベーススキーマの設計（Drizzle）
+   - [x] マイグレーションの実行
+   - [ ] サービスレイヤーの実装
+     - [ ] app/services/articles.ts
+     - [ ] app/services/transcripts.ts
+   - [ ] Server Actionsの実装
+     - [ ] app/actions.ts
+
+## 今後の作業
+1. **サーバーサイド実装**
+   - [ ] サービスレイヤーの実装（app/(server)/services/）
+     ```
+     ├── articles.ts  # 記事関連のロジック
+     ├── youtube.ts   # YouTube API関連
+     └── openai.ts    # AI生成関連
+     ```
+   - [ ] Server Actionsの実装（app/(server)/actions/）
+     ```
+     ├── articles.ts  # 記事関連のアクション
+     └── generate.ts  # 生成関連のアクション
+     ```
+   - [ ] 型システムの整備
+     - [ ] Drizzle ORMの型活用
+     - [ ] サービス層の型定義
+
+2. **UI実装（Server Components優先）**
+   - [ ] ルートごとのコンポーネント構造
+     ```
+     app/
+     ├── articles/
+     │   └── components/  # 記事関連コンポーネント
+     └── dashboard/
+         └── components/  # ダッシュボード関連
+     ```
+   - [ ] Server Componentsでのデータフェッチ
+   - [ ] 必要最小限のClient Components
+
+3. **テスト実装**
+   - [ ] サービスレイヤーのユニットテスト
+   - [ ] Server Actionsのテスト
+   - [ ] コンポーネントテスト
+
+## 既知の課題
+1. **技術的課題**
+   - Server Componentsでのストリーミング最適化
+   - Server Actionsのエラーハンドリング
+   - データフェッチの効率化
+
+2. **アーキテクチャ課題**
+   - サーバー/クライアントの適切な分離
+   - ロジックの適切な配置
+   - 型安全性の確保
+
+## リスク管理
+1. **技術的リスク**
+   - Server Components移行の複雑さ
+   - 型安全性の確保
+   - パフォーマンスの最適化
+
+2. **対策**
+   - 段階的なServer Components移行
+   - Drizzle ORMの型システム活用
+   - Server Actionsの適切な設計
+
+## 次のマイルストーン
+1. **Phase 1: サーバーサイド基盤**
+   - [ ] サービスレイヤー実装
+   - [ ] Server Actions実装
+   - [ ] 型システム整備
+
+2. **Phase 2: UI実装**
+   - [ ] Server Components実装
+   - [ ] 必要なClient Components実装
+   - [ ] フォーム処理のServer Actions化
+
+3. **Phase 3: 最適化**
+   - [ ] パフォーマンス改善
+   - [ ] エラーハンドリング強化
+   - [ ] キャッシング戦略実装
+
+## 品質指標
+1. **パフォーマンス**
+   - [ ] Server Componentsのロード時間
+   - [ ] Server Actionsの応答時間
+   - [ ] メモリ使用率の監視
+
+2. **コード品質**
+   - [ ] 型カバレッジ
+   - [ ] テストカバレッジ
+   - [ ] エラーハンドリングの完全性
+
+## 更新履歴
+- 2025/03/19: プロジェクト仕様書作成、Memory Bank初期設定
+- 2025/03/20: データベーススキーマ設計完了、マイグレーション実行
+- 2025/03/22: アーキテクチャ方針の更新（Server Components優先）
+</file>
+
 <file path="middleware.ts">
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 
-const isProtectedRoute = createRouteMatcher(['/api/(.*)', '/(.*)'])
+const isPublicRoute = createRouteMatcher(['/sign-in(.*)', '/(.*)'])
 
 export default clerkMiddleware(async (auth, req) => {
-  if (isProtectedRoute(req)) await auth.protect()
+  if (!isPublicRoute(req)) {
+    await auth.protect()
+  }
 })
 
 export const config = {
@@ -1907,8 +1591,291 @@ export const config = {
 }
 </file>
 
+<file path="app/components/url-input.tsx">
+'use client'
+
+import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { useRouter } from 'next/navigation'
+import { ErrorMessage } from './error-message'
+import { getYouTubeTranscriptAction } from '../(server)/actions/getYouTubeTranscriptAction'
+
+type UrlFormData = {
+  url: string
+}
+
+export function URLInput() {
+  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { register, handleSubmit, formState: { errors } } = useForm<UrlFormData>()
+
+
+
+  return (
+    <form action={async (formData: FormData) => {
+      setIsLoading(true)
+      const result = await getYouTubeTranscriptAction(formData)
+      if (result.success) {
+        setIsLoading(false)
+        if (result.data?.redirect) {
+          router.push(result.data.redirect)
+        }
+      } else {
+        setError(result.error?.message || 'エラーが発生しました')
+        setIsLoading(false)
+      }
+    }} className="space-y-4">
+      <div className="space-y-4">
+        <div className="relative">
+          <input
+            {...register('url', {
+              required: 'URLを入力してください',
+              pattern: {
+                value: /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[a-zA-Z0-9_-]+/,
+                message: '有効なYouTube URLを入力してください'
+              }
+            })}
+            type="url"
+            placeholder="https://www.youtube.com/watch?v=..."
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="absolute right-2 top-2 px-4 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+          >
+            {isLoading ? '処理中...' : '生成'}
+          </button>
+        </div>
+        {(errors.url || error) && (
+          <ErrorMessage message={errors.url?.message || error || ''} />
+        )}
+      </div>
+    </form>
+  )
+}
+</file>
+
+<file path="memory-bank/techContext.md">
+# 技術コンテキスト
+
+## 技術スタック
+### アプリケーション構造
+- **Next.js** - Reactフレームワーク
+  - App Router
+  - Server Components（優先使用）
+  - Client Components（必要最小限）
+  - Server Actions（フォーム処理）
+
+### Page Component型定義
+```typescript
+// ダイナミックルートのページコンポーネント
+type PageProps = {
+  params: { [key: string]: string }
+  searchParams?: { [key: string]: string | string[] | undefined }
+}
+
+export default async function Page({ params, searchParams }: PageProps) {
+  // ...
+}
+```
+
+### バックエンド構造
+- **Server Components** - データフェッチ
+- **Server Actions** - サーバーサイド処理
+- **サービスレイヤー** - ビジネスロジック
+
+### データ層
+- **Supabase** (PostgreSQL)
+  - データベースホスティング
+  - Row Level Security
+  - ストレージ
+- **Drizzle ORM**
+  - 型安全なクエリ構築
+  - スキーマファーストアプローチ
+  - 自動生成された型定義の活用
+
+### 認証
+- **Clerk**
+  - ユーザー認証
+  - セッション管理
+  - 権限制御
+
+### 外部API・ライブラリ
+- **youtube-transcript** - 字幕取得ライブラリ
+- **OpenAI API (GPT-4)** - AI文章生成
+
+### デプロイ
+- **Vercel** - サーバーレスプラットフォーム
+
+## プロジェクト構成
+```
+app/
+├── (server)/           # サーバーサイドロジック
+│   ├── services/       # ドメインロジック
+│   └── actions/        # Server Actions
+├── articles/           # 記事関連ページ
+│   ├── components/     # 記事専用コンポーネント
+│   └── [id]/          # 記事詳細ページ
+├── components/         # 共通コンポーネント
+└── lib/               # ユーティリティ
+```
+
+## 開発要件
+### 基本要件
+- Node.js >= 18.x
+- TypeScript（Strict Mode）
+  - Next.js 14の型定義を厳密に使用
+  - Page Propsの型定義を徹底
+  - Drizzle型の活用
+- ESLint + Prettier
+- pnpm（パッケージマネージャー）
+
+### 環境変数設定
+- `OPENAI_API_KEY` - OpenAI APIキー
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` - Clerk公開キー
+- `CLERK_SECRET_KEY` - Clerkシークレットキー
+- `NEXT_PUBLIC_SUPABASE_URL` - SupabaseプロジェクトURL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase匿名キー
+- `SUPABASE_SERVICE_ROLE_KEY` - Supabaseサービスロールキー
+
+## 技術的要件と制約
+1. **パフォーマンス**
+   - Server Componentsによる最適化
+   - 必要最小限のClient Components
+   - 適切なキャッシング戦略
+   - 応答時間目標:
+     - ページロード < 3秒
+     - Server Action < 5秒
+
+2. **スケーラビリティ**
+   - Server Componentのストリーミング
+   - Server Actionsの最適化
+   - Supabaseコネクションプール管理
+
+3. **セキュリティ**
+   - Server Componentsでの安全なデータフェッチ
+   - Server Actionsでのバリデーション
+   - Row Level Securityの適切な設定
+   - 環境変数の厳格な管理
+
+4. **コード品質**
+   - Server/Client分離の明確化
+   - サービスレイヤーでのロジック集中
+   - Drizzle ORMの型活用
+   - ユニットテストの実装
+</file>
+
+<file path="app/(server)/actions/getYouTubeTranscriptAction.ts">
+'use server'
+
+import { auth } from '@clerk/nextjs/server'
+import { YoutubeTranscript } from 'youtube-transcript'
+import { createTranscript } from '../(services)/transcripts'
+import { generateAndSaveArticle } from '../(services)/articles'
+import { YouTubeTranscriptSegment } from '@/lib/types'
+import { revalidatePath } from 'next/cache'
+// URLからビデオIDを抽出する関数
+function extractVideoId(url: string): string | null {
+  try {
+    const urlObj = new URL(url);
+    if (urlObj.hostname === 'youtu.be') {
+      return urlObj.pathname.slice(1);
+    } else if (urlObj.hostname === 'www.youtube.com' || urlObj.hostname === 'youtube.com') {
+      return urlObj.searchParams.get('v');
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// ビデオIDを検証する関数
+function validateVideoId(videoId: string | null): boolean {
+  return Boolean(videoId && /^[a-zA-Z0-9_-]{11}$/.test(videoId));
+}
+
+export async function getYouTubeTranscriptAction(formData: FormData) {
+  const userId = await auth();
+  if (!userId) {
+    return {
+      success: false,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: '認証が必要です'
+      }
+    };
+  }
+
+  try {
+    const url = formData.get('url') as string;
+    const videoId = extractVideoId(url);
+
+    if (!validateVideoId(videoId)) {
+      return {
+        success: false,
+        error: {
+          code: 'INVALID_URL',
+          message: '無効なYouTube URLです'
+        }
+      };
+    }
+
+    // 字幕を取得
+    const rawTranscript = await YoutubeTranscript.fetchTranscript(videoId as string);
+    const transcript = rawTranscript.map(segment => ({
+      text: segment.text,
+      start: segment.offset,
+      duration: segment.duration,
+      language: segment.lang
+    }));
+
+    console.log(transcript[0].language);
+
+    // 字幕を保存
+    await createTranscript({
+      userId: userId.userId as string,
+      videoId: videoId as string,
+      transcript: JSON.stringify(transcript),
+      language: transcript[0].language as string, 
+    });
+
+    // 記事を生成して保存
+    const article = await generateAndSaveArticle(
+      userId.userId as string,
+      videoId as string,
+      transcript[0].language as string
+    );
+
+    revalidatePath('/');
+    
+    // 記事の生成に成功した場合は記事ページにリダイレクト
+    return {
+      success: true,
+      data: {
+        videoId,
+        transcript,
+        redirect: `/articles/${article.id}`
+      }
+    };
+
+
+  } catch (error: any) {
+    console.error('[Transcript Error]:', error);
+    return {
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: error.message || '字幕の取得に失敗しました'
+      }
+    };
+  }
+}
+</file>
+
 <file path="app/db/schema.ts">
-import { pgSchema, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { jsonb, pgSchema, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 // スキーマ名を定義
 export const mySchema = pgSchema('youtube_blog_ai');
 
@@ -1927,6 +1894,7 @@ export const articles = mySchema.table('articles', {
   id: uuid().primaryKey().defaultRandom(),
   userId: text().notNull(),
   videoId: text().notNull(),
+  transcriptId: uuid().notNull().references(() => transcripts.id),
   title: text().notNull(),
   content: text().notNull(),
   language: text().notNull(),
@@ -1939,35 +1907,362 @@ export const transcripts = mySchema.table('transcripts', {
   id: uuid().primaryKey().defaultRandom(),
   userId: text().notNull(),
   videoId: text().notNull(),
-  transcript: text().notNull(),
+  transcript: jsonb().notNull(), // PostgreSQLの場合
   language: text().notNull(),
   createdAt: timestamp().defaultNow(),
 });
 </file>
 
-<file path="app/page.tsx">
-import { URLInput } from './components/url-input'
+<file path="memory-bank/systemPatterns.md">
+# システムパターン設計
 
-export default function Home() {
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-4xl font-bold text-center mb-8">
-        YouTube Blog AI
-      </h1>
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white shadow-sm rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">
-            URLを入力して始める
-          </h2>
-          <URLInput />
-          <p className="mt-4 text-sm text-gray-500">
-            YouTubeの動画URLを入力すると、AIが自動で記事を生成します
-          </p>
-        </div>
-      </div>
-    </div>
-  )
+## アーキテクチャ概要
+```mermaid
+graph TD
+    Client[Server Components] --> |1. Server Action呼び出し| Action[Server Actions]
+    Action --> |2. サービス呼び出し| Service[サービスレイヤー]
+    Service --> |3. 外部API呼び出し| External[外部API]
+    Service --> |4. データ永続化| DB[Supabase]
+    Client --> |5. 認証| Auth[Clerk認証]
+```
+
+## システムレイヤー
+### 1. プレゼンテーション層
+- Server Componentsを優先使用
+- Client Componentsは必要最小限（例：インタラクティブなUI要素のみ）
+- ルートごとに分離されたコンポーネント構造
+  - 例：articles/components/
+  - 例：dashboard/components/
+
+### 2. サーバーサイド構造
+- サーバーロジックの集中管理
+  ```
+  app/
+  ├── (server)/
+  │   ├── services/     # ドメインロジック・DB操作
+  │   │   ├── articles.ts
+  │   │   ├── youtube.ts
+  │   │   └── openai.ts
+  │   └── actions/      # Server Actions
+  │       ├── articles.ts
+  │       └── generate.ts
+  ```
+- Server Actionsによるフォーム処理
+- APIルートの最小限使用
+
+### 3. ドメインロジック（サービスレイヤー）
+- モデルごとに分離されたサービス
+  ```typescript
+  // app/(server)/services/articles.ts
+  export class ArticleService {
+    // Drizzle ORMの型を活用
+    async createArticle(data: InsertArticle) {
+      return db.insert(articles).values(data);
+    }
+  }
+  ```
+- ビジネスロジックの集中管理
+- 外部APIとの通信処理
+
+### 4. インフラストラクチャ層
+- Vercelでのサーバーレス構成
+- Supabaseによるデータ永続化
+  - Drizzle ORMによる型安全なクエリ
+  - スキーマファーストアプローチ
+- Clerkによる認証基盤
+
+## データフロー
+```mermaid
+sequenceDiagram
+    participant User as ユーザー
+    participant SC as Server Component
+    participant SA as Server Action
+    participant SV as Service
+    participant Ex as 外部API
+    participant DB as Database
+
+    User->>SC: フォーム送信
+    SC->>SA: Server Action呼び出し
+    SA->>SV: サービスメソッド呼び出し
+    SV->>Ex: API要求
+    Ex-->>SV: レスポンス
+    SV->>DB: データ永続化
+    DB-->>SV: 保存確認
+    SV-->>SA: 処理結果
+    SA-->>SC: レスポンス
+    SC-->>User: UI更新
+```
+
+## 実装パターン
+### 1. Page Component型定義パターン
+```typescript
+// ベース型定義
+type BasePageProps = {
+  params: { [key: string]: string }
+  searchParams?: { [key: string]: string | string[] | undefined }
 }
+
+// 静的ページの例
+// app/articles/page.tsx
+export default async function ArticlesPage({
+  searchParams
+}: BasePageProps) {
+  const articles = await db.query.articles.findMany();
+  return (
+    <div>
+      {articles.map(article => (
+        <ArticleCard key={article.id} article={article} />
+      ))}
+    </div>
+  );
+}
+
+// 動的ルートページの例
+// app/articles/[id]/page.tsx
+export default async function ArticlePage({
+  params
+}: BasePageProps) {
+  const article = await db.query.articles.findFirst({
+    where: { id: params.id }
+  });
+  return <ArticleDetail article={article} />;
+}
+```
+
+### 2. Server Actionパターン
+```typescript
+// app/(server)/actions/articles.ts
+'use server'
+
+import { db } from '@/db'
+import { articles } from '@/db/schema'
+import { Article, InsertArticle } from '@/db/types'
+
+export async function createArticle(data: FormData): Promise<Article> {
+  const articleData: InsertArticle = {
+    title: data.get('title') as string,
+    content: data.get('content') as string,
+  };
+
+  const articleService = new ArticleService();
+  return articleService.create(articleData);
+}
+```
+
+### 3. サービスレイヤーパターン
+```typescript
+// app/(server)/services/articles.ts
+import { db } from '@/db'
+import { articles } from '@/db/schema'
+import { Article, InsertArticle } from '@/db/types'
+
+export class ArticleService {
+  async create(data: InsertArticle): Promise<Article> {
+    return db.insert(articles).values(data).returning();
+  }
+
+  async generateFromYoutube(url: string): Promise<Article> {
+    const transcript = await this.youtubeService.getTranscript(url);
+    const content = await this.openaiService.generateArticle(transcript);
+    return this.create({ title: transcript.title, content });
+  }
+}
+```
+
+## エラー処理
+```typescript
+// app/(server)/services/base.ts
+export class BaseService {
+  protected handleError(error: unknown) {
+    // エラーログ記録
+    console.error(error);
+    
+    // 構造化されたエラーレスポンス
+    return {
+      success: false,
+      error: {
+        message: error instanceof Error ? error.message : '不明なエラーが発生しました',
+      }
+    };
+  }
+}
+```
+
+## キャッシング戦略
+1. **React Server Components**
+   - デフォルトのキャッシング動作を活用
+   - Route Segment Config でのカスタマイズ
+
+2. **Server Actions**
+   - クライアントキャッシュの活用
+   - 楽観的更新の実装
+</file>
+
+<file path="app/(server)/(services)/articles.ts">
+'server only'
+import db from '@/app/db';
+import { articles, transcripts } from '@/app/db/schema';
+import { eq } from 'drizzle-orm';
+import type { NewArticle, Article, Transcript } from '@/lib/types';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+// Gemini APIの初期化
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+
+/**
+ * 字幕から記事を生成して保存する
+ */
+export const generateAndSaveArticle = async (userId: string, videoId: string, language: string = 'ja'): Promise<Article> => {
+  try {
+    // 字幕を取得
+    const [transcriptData] = await db
+      .select()
+      .from(transcripts)
+      .where(eq(transcripts.videoId, videoId))
+      .limit(1);
+
+    if (!transcriptData) {
+      throw new Error('字幕が見つかりません');
+    }
+
+    // 字幕テキストを結合
+    const transcriptContent = (transcriptData.transcript as { text: string }[])
+      .map(segment => segment.text)
+      .join('\n');
+
+    // Geminiモデルを設定
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+    // プロンプトを作成
+    const prompt = `以下のYouTube動画の字幕から、ブログ記事を生成してください。
+字幕の内容を要約し、適切な見出しをつけて、読みやすい記事にしてください。
+見出しはh1, h2, h3などのHTMLタグを使用してください。
+段落はpタグで囲んでください。
+重要な部分はstrongタグで強調してください。
+
+字幕内容：
+${transcriptContent}
+
+出力形式：
+{
+  "title": "記事のタイトル",
+  "content": "記事の本文（HTML形式）"
+}
+
+出力例：
+{
+  "title": "タイトル例",
+  "content": "<article><h1>メインタイトル</h1><p>導入文...</p><h2>セクション1</h2><p>本文...<strong>重要なポイント</strong>...</p></article>"
+}`;
+
+    // 記事を生成
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    
+    // レスポンステキストからJSONを抽出して正規化
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('生成された記事のフォーマットが不正です');
+    }
+    
+    // 抽出したテキストを正規化
+    let jsonText = jsonMatch[0]
+      // 改行を削除
+      .replace(/\n/g, ' ')
+      // 連続する空白を1つに
+      .replace(/\s+/g, ' ')
+      // HTMLタグ内の余分な空白を削除
+      .replace(/>\s+</g, '><')
+      // 特殊文字をエスケープ
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+
+    console.log('Normalized JSON:', jsonText);
+    
+    try {
+      // JSONをパース
+      const article = JSON.parse(jsonText);
+      
+      // 必要なプロパティの存在チェック
+      if (!article.title || !article.content) {
+        throw new Error('記事のタイトルまたは本文が見つかりません');
+      }
+      
+      // 記事を保存
+      const createdArticle = await saveArticle({
+        userId,
+        videoId,
+        transcriptId: transcriptData.id,
+        title: article.title,
+        content: article.content,
+        language,
+      });
+
+      return createdArticle;
+    } catch (error) {
+      console.error('JSON Parse Error:', error);
+      console.error('Raw JSON Text:', jsonText);
+      throw new Error('記事の生成結果を解析できませんでした: ' + (error as Error).message);
+    }
+  } catch (error) {
+    console.error('Error generating article:', error);
+    throw error;
+  }
+};
+
+/**
+ * 記事を保存する
+ */
+export const saveArticle = async (data: NewArticle): Promise<Article> => {
+  try {
+    const [article] = await db
+      .insert(articles)
+      .values({
+        ...data,
+        transcriptId: data.transcriptId
+      })
+      .returning();
+    
+    return article;
+  } catch (error) {
+    console.error('Error creating article:', error);
+    throw error;
+  }
+};
+
+/**
+ * 記事一覧を取得する
+ */
+export const getArticles = async (): Promise<Article[]> => {
+  try {
+    const result = await db
+      .select()
+      .from(articles);
+    
+    return result;
+  } catch (error) {
+    console.error('Error fetching articles:', error);
+    throw error;
+  }
+};
+
+/**
+ * 記事を取得する
+ */
+export const getArticle = async (id: string): Promise<Article | null> => {
+  try {
+    const [article] = await db
+      .select()
+      .from(articles)
+      .where(eq(articles.id, id))
+      .limit(1);
+    
+    return article || null;
+  } catch (error) {
+    console.error('Error fetching article:', error);
+    throw error;
+  }
+};
 </file>
 
 <file path="package.json">
@@ -1984,31 +2279,39 @@ export default function Home() {
   },
   "dependencies": {
     "@clerk/nextjs": "^6.12.5",
+    "@google/generative-ai": "^0.24.0",
     "@heroicons/react": "^2.2.0",
     "@supabase/supabase-js": "^2.49.1",
     "@tailwindcss/forms": "^0.5.10",
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.40.1",
+    "framer-motion": "^12.5.0",
     "next": "15.2.3",
     "pg": "^8.14.1",
     "postgres": "^3.4.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.54.2",
+    "react-intersection-observer": "^9.16.0",
     "youtube-transcript": "^1.2.1",
     "zod": "^3.24.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4",
+    "@tailwindcss/typography": "^0.5.16",
     "@types/node": "^20",
     "@types/pg": "^8.11.11",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "add": "^2.0.6",
+    "autoprefixer": "^10.4.21",
+    "bun": "^1.2.5",
     "drizzle-kit": "^0.30.5",
     "eslint": "^9",
     "eslint-config-next": "15.2.3",
-    "tailwindcss": "^4",
+    "postcss": "^8.5.3",
+    "postcss-nesting": "^13.0.1",
+    "tailwindcss": "^3.4.17",
     "tsx": "^4.19.3",
     "typescript": "^5"
   }
