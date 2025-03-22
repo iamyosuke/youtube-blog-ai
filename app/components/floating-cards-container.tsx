@@ -92,6 +92,6 @@ export const FloatingCardsContainer = ({ articles }: FloatingCardsContainerProps
           </div>
         );
       })}
-    </>
+    </div>
   );
 };
