@@ -5,11 +5,14 @@ import { Metadata } from 'next';
 import Image from 'next/image';
 import { YouTubeService } from '@/app/(server)/services/youtube';
 
+type Params = Promise<{ id: string }>;
+
 export async function generateMetadata({ 
-  params: { id }
+  params
 }: {
-  params: { id: string }
+  params: Params;
 }): Promise<Metadata> {
+  const { id } = await params;
   const article = await getArticle(id);
   
   if (!article) {
@@ -25,10 +28,11 @@ export async function generateMetadata({
 }
 
 export default async function ArticlePage({
-  params: { id }
+  params
 }: {
-  params: { id: string }
+  params: Params;
 }) {
+  const { id } = await params;
   const article = await getArticle(id);
   
   if (!article) {
